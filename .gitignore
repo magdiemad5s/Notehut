@@ -42,4 +42,6 @@ next-env.d.ts
 
 # temporary files
 .tmp/
+.opencode/
+
 

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "agent": {
+    "TaskManager": {
+      "mode": "subagent",
+      "model": "opencode-go/deepseek-v4-pro"
+    },
+    "CoderAgent": {
+      "mode": "subagent",
+      "model": "opencode-go/deepseek-v4-flash"
+    },
+    "CodeReviewer": {
+      "mode": "subagent",
+      "model": "opencode-go/minimax-m3"
+    }
+  }
+}

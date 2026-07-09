@@ -22,6 +22,7 @@ import fitz  # PyMuPDF
 import httpx
 import torch
 from fastapi import FastAPI, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
 # =============================================================================
@@ -53,6 +54,17 @@ logger = logging.getLogger("notehut-ocr-worker")
 # =============================================================================
 
 app = FastAPI(title="NoteHut OCR Worker")
+
+# CORS — allow the browser (admin panel) to call the worker directly.
+# The "Test Worker" button makes a cross-origin fetch from notehut.vercel.app
+# to the Cloudflare tunnel URL; without these headers the browser blocks it.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],          # tunnel URLs change every Colab session
+    allow_credentials=False,      # no cookies; Bearer token goes in Authorization header
+    allow_methods=["*"],          # includes OPTIONS preflight
+    allow_headers=["*"],          # allows Authorization
+)
 
 # =============================================================================
 # OCR Engine — lazy-loaded globals

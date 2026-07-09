@@ -8,14 +8,6 @@ import { OcrWorkerSection } from './ocr-worker-section'
 import { AdminQueueSection } from './queue-section'
 import { UsersSection } from './users-section'
 
-const TABS = [
-  { id: 'stats', label: 'Stats', Component: StatsSection },
-  { id: 'ai-config', label: 'AI Config', Component: AIConfigSection },
-  { id: 'ocr-worker', label: 'OCR Worker', Component: OcrWorkerSection },
-  { id: 'queue', label: 'Queue', Component: AdminQueueSection },
-  { id: 'users', label: 'Users', Component: UsersSection },
-] as const
-
 export function AdminTabs({ currentUserId }: { currentUserId: string }) {
   return (
     <div className="space-y-6">
@@ -26,28 +18,28 @@ export function AdminTabs({ currentUserId }: { currentUserId: string }) {
 
       <Tabs defaultValue="stats">
         <TabsList>
-          {TABS.map((tab) => (
-            <TabsTrigger key={tab.id} value={tab.id}>
-              {tab.label}
-            </TabsTrigger>
-          ))}
+          <TabsTrigger value="stats">Stats</TabsTrigger>
+          <TabsTrigger value="ai-config">AI Config</TabsTrigger>
+          <TabsTrigger value="ocr-worker">OCR Worker</TabsTrigger>
+          <TabsTrigger value="queue">Queue</TabsTrigger>
+          <TabsTrigger value="users">Users</TabsTrigger>
         </TabsList>
 
-        {TABS.map((tab) => {
-          // UsersSection needs currentUserId to disable own-row toggle
-          if (tab.id === 'users') {
-            return (
-              <TabsContent key={tab.id} value={tab.id}>
-                <UsersSection currentUserId={currentUserId} />
-              </TabsContent>
-            )
-          }
-          return (
-            <TabsContent key={tab.id} value={tab.id}>
-              <tab.Component />
-            </TabsContent>
-          )
-        })}
+        <TabsContent value="stats">
+          <StatsSection />
+        </TabsContent>
+        <TabsContent value="ai-config">
+          <AIConfigSection />
+        </TabsContent>
+        <TabsContent value="ocr-worker">
+          <OcrWorkerSection />
+        </TabsContent>
+        <TabsContent value="queue">
+          <AdminQueueSection />
+        </TabsContent>
+        <TabsContent value="users">
+          <UsersSection currentUserId={currentUserId} />
+        </TabsContent>
       </Tabs>
     </div>
   )

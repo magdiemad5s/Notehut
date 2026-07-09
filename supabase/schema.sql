@@ -85,11 +85,32 @@ create table if not exists public.shared_exams (
   created_at timestamptz default now()
 );
 
--- app_settings: admin toggles
+-- app_settings: admin toggles and configuration (jsonb for flexibility)
 create table if not exists public.app_settings (
   key text primary key,
-  value boolean not null
+  value jsonb not null default '{}'::jsonb
 );
+
+-- Migration: if app_settings was created with value boolean, convert to jsonb
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+    and table_name = 'app_settings'
+    and column_name = 'value'
+    and data_type = 'boolean'
+  ) then
+    -- Add a temporary jsonb column, copy data, drop old, rename
+    alter table public.app_settings add column value_jsonb jsonb;
+    update public.app_settings set value_jsonb = to_jsonb(value);
+    alter table public.app_settings drop column value;
+    alter table public.app_settings rename column value_jsonb to value;
+    alter table public.app_settings alter column value set default '{}'::jsonb;
+    alter table public.app_settings alter column value set not null;
+  end if;
+end;
+$$;
 
 -- app_secrets: admin fallback API keys (NO RLS — service-role only)
 create table if not exists public.app_secrets (
@@ -426,8 +447,8 @@ create policy "Only admins can update app settings"
 
 -- Seed app_settings
 insert into public.app_settings (key, value) values
-  ('accelerated_ocr_online', false),
-  ('worker_online', false),
+  ('accelerated_ocr_online', 'false'::jsonb),
+  ('worker_online', 'false'::jsonb),
   ('ocr_worker_url', '""'::jsonb),
   ('ocr_worker_api_key', '""'::jsonb),
   ('exam_model', '""'::jsonb),

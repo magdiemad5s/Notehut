@@ -184,6 +184,10 @@ alter table if exists public.app_settings enable row level security;
 -- app_secrets: NO RLS — service-role-only access
 
 -- profiles: user can read/update own row. is_admin users can read all.
+drop policy if exists "Users can read own profile" on public.profiles;
+drop policy if exists "Admins can read all profiles" on public.profiles;
+drop policy if exists "Users can update own profile" on public.profiles;
+
 create policy "Users can read own profile"
   on public.profiles for select
   using (auth.uid() = id);
@@ -203,6 +207,11 @@ create policy "Users can update own profile"
   with check (auth.uid() = id);
 
 -- topics: owner-only (select, insert, update, delete where auth.uid() = user_id)
+drop policy if exists "Users can select own topics" on public.topics;
+drop policy if exists "Users can insert own topics" on public.topics;
+drop policy if exists "Users can update own topics" on public.topics;
+drop policy if exists "Users can delete own topics" on public.topics;
+
 create policy "Users can select own topics"
   on public.topics for select
   using (auth.uid() = user_id);
@@ -221,6 +230,11 @@ create policy "Users can delete own topics"
   using (auth.uid() = user_id);
 
 -- documents: owner-only (filter by user_id)
+drop policy if exists "Users can select own documents" on public.documents;
+drop policy if exists "Users can insert own documents" on public.documents;
+drop policy if exists "Users can update own documents" on public.documents;
+drop policy if exists "Users can delete own documents" on public.documents;
+
 create policy "Users can select own documents"
   on public.documents for select
   using (auth.uid() = user_id);
@@ -239,6 +253,11 @@ create policy "Users can delete own documents"
   using (auth.uid() = user_id);
 
 -- document_chunks: owner-only (filter via document ownership join)
+drop policy if exists "Users can select own document chunks" on public.document_chunks;
+drop policy if exists "Users can insert document chunks for own documents" on public.document_chunks;
+drop policy if exists "Users can update own document chunks" on public.document_chunks;
+drop policy if exists "Users can delete own document chunks" on public.document_chunks;
+
 create policy "Users can select own document chunks"
   on public.document_chunks for select
   using (
@@ -287,6 +306,11 @@ create policy "Users can delete own document chunks"
   );
 
 -- ocr_queue: owner-only for select/insert. Admin (is_admin=true) can read all rows.
+drop policy if exists "Users can select own ocr queue items" on public.ocr_queue;
+drop policy if exists "Users can insert own ocr queue items" on public.ocr_queue;
+drop policy if exists "Only admins can update ocr queue" on public.ocr_queue;
+drop policy if exists "Only admins can delete ocr queue" on public.ocr_queue;
+
 create policy "Users can select own ocr queue items"
   on public.ocr_queue for select
   using (
@@ -327,6 +351,11 @@ create policy "Only admins can delete ocr queue"
   );
 
 -- user_weaknesses: owner-only
+drop policy if exists "Users can select own weaknesses" on public.user_weaknesses;
+drop policy if exists "Users can insert own weaknesses" on public.user_weaknesses;
+drop policy if exists "Users can update own weaknesses" on public.user_weaknesses;
+drop policy if exists "Users can delete own weaknesses" on public.user_weaknesses;
+
 create policy "Users can select own weaknesses"
   on public.user_weaknesses for select
   using (auth.uid() = user_id);
@@ -345,6 +374,12 @@ create policy "Users can delete own weaknesses"
   using (auth.uid() = user_id);
 
 -- shared_exams: anyone can read if is_public=true. Owner can insert/update/delete.
+drop policy if exists "Anyone can read public exams" on public.shared_exams;
+drop policy if exists "Owner can select own exams" on public.shared_exams;
+drop policy if exists "Owner can insert exams" on public.shared_exams;
+drop policy if exists "Owner can update own exams" on public.shared_exams;
+drop policy if exists "Owner can delete own exams" on public.shared_exams;
+
 create policy "Anyone can read public exams"
   on public.shared_exams for select
   using (is_public = true);
@@ -367,6 +402,9 @@ create policy "Owner can delete own exams"
   using (auth.uid() = creator_id);
 
 -- app_settings: any authenticated user can read. Only is_admin can update.
+drop policy if exists "Authenticated users can read app settings" on public.app_settings;
+drop policy if exists "Only admins can update app settings" on public.app_settings;
+
 create policy "Authenticated users can read app settings"
   on public.app_settings for select
   using (auth.role() = 'authenticated');

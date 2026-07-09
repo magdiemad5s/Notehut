@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RealtimeOcrStatus } from '@/components/realtime-ocr-status'
 import { byokToHeaders, useByokStore } from '@/lib/store/byok-store'
+import { createClient } from '@/lib/supabase/client'
 
 interface UploadPdfProps {
   topicId: string
@@ -17,7 +18,11 @@ interface UploadPdfProps {
 /**
  * UploadPdf — file input + upload trigger.
  *
- * On submit, POSTs the PDF to /api/upload as multipart/form-data.
+ * Uploads the PDF directly to Supabase Storage from the browser (bypassing
+ * Vercel's 4.5 MB serverless function body limit), then calls
+ * /api/upload/complete with just the storage path + filename + topicId
+ * (tiny JSON) to create the documents + ocr_queue rows.
+ *
  * On success, renders RealtimeOcrStatus with the returned queueId
  * so the user can watch the OCR → chunk → embed pipeline progress.
  */
@@ -52,17 +57,49 @@ export function UploadPdf({ topicId }: UploadPdfProps) {
 
     setUploading(true)
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('topicId', topicId)
+      // --- Step 1: get the auth user id (for the storage path prefix) -----
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        throw new Error('Authentication required')
+      }
 
-      const res = await fetch('/api/upload', {
+      // --- Step 2: upload directly to Supabase Storage -------------------
+      // Path: pdfs/{user_id}/{uuid}.pdf — folder isolation by user id.
+      const storagePath = `${user.id}/${crypto.randomUUID()}.pdf`
+
+      const { error: uploadError } = await supabase.storage
+        .from('pdfs')
+        .upload(storagePath, file, {
+          contentType: 'application/pdf',
+          upsert: false,
+        })
+
+      if (uploadError) {
+        throw new Error(
+          `Storage upload failed: ${uploadError.message}. Ensure the 'pdfs' bucket exists in Supabase Storage.`,
+        )
+      }
+
+      // --- Step 3: create the documents + ocr_queue rows -----------------
+      // Tiny JSON request — no file body, so no Vercel 4.5 MB limit.
+      const res = await fetch('/api/upload/complete', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          storagePath,
+          filename: file.name,
+          topicId,
+        }),
       })
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
+        // Best-effort cleanup of the orphaned storage file.
+        await supabase.storage
+          .from('pdfs')
+          .remove([storagePath])
+          .catch((e) => console.error('Cleanup: storage remove failed:', e))
         throw new Error(data.error || `Upload failed (${res.status})`)
       }
 

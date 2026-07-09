@@ -1,11 +1,25 @@
-import { createServiceClient } from '@/lib/supabase/service'
+'use client'
+
+import { useEffect, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
-import { Users, BookOpen, FileText, Clock, Server, Zap } from 'lucide-react'
+import { Users, BookOpen, FileText, Clock, Server, Zap, Loader2 } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                     */
 /* -------------------------------------------------------------------------- */
+
+type StatsData = {
+  totalUsers: number
+  totalDocuments: number
+  totalTopics: number
+  pending: number
+  processing: number
+  failed: number
+  workerOnline: boolean
+  acceleratedOcrOnline: boolean
+  workerUrl: string
+}
 
 type StatCardProps = {
   icon: ReactNode
@@ -69,89 +83,83 @@ function StatusIndicator({
 }
 
 /* -------------------------------------------------------------------------- */
-/*  StatsSection — server component                                           */
+/*  StatsSection — client component                                           */
 /* -------------------------------------------------------------------------- */
 
-export async function StatsSection() {
-  const svc = createServiceClient()
+export function StatsSection() {
+  const [data, setData] = useState<StatsData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const [usersRes, docsRes, topicsRes, queueRes, settingsRes] =
-    await Promise.all([
-      svc.from('profiles').select('*', { count: 'exact', head: true }),
-      svc.from('documents').select('*', { count: 'exact', head: true }),
-      svc.from('topics').select('*', { count: 'exact', head: true }),
-      svc.from('ocr_queue').select('status'),
-      svc
-        .from('app_settings')
-        .select('key, value')
-        .in('key', [
-          'worker_online',
-          'accelerated_ocr_online',
-          'ocr_worker_url',
-        ]),
-    ])
+  useEffect(() => {
+    async function load() {
+      try {
+        const res = await fetch('/api/admin/stats')
+        if (!res.ok) {
+          throw new Error(`Failed to load stats (${res.status})`)
+        }
+        const stats: StatsData = await res.json()
+        setData(stats)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unknown error')
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [])
 
-  /* ------ Counts ------ */
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
 
-  const totalUsers = usersRes.count ?? 0
-  const totalDocuments = docsRes.count ?? 0
-  const totalTopics = topicsRes.count ?? 0
-
-  /* ------ Queue breakdown ------ */
-
-  const queueItems = queueRes.data ?? []
-  const pending = queueItems.filter((q) => q.status === 'pending').length
-  const processing = queueItems.filter((q) => q.status === 'processing').length
-  const failed = queueItems.filter((q) => q.status === 'failed').length
-
-  /* ------ Worker settings ------ */
-
-  const settings = settingsRes.data ?? []
-  const getSetting = (key: string) =>
-    settings.find((s) => s.key === key)?.value
-
-  const workerOnline = getSetting('worker_online') === 'true'
-  const acceleratedOcrOnline =
-    getSetting('accelerated_ocr_online') === 'true'
-  const workerUrl = getSetting('ocr_worker_url') ?? ''
-
-  /* ------ Render ------ */
+  if (error || !data) {
+    return (
+      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        Failed to load stats: {error || 'No data'}
+      </div>
+    )
+  }
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <StatCard
         icon={<Users className="size-5" />}
         label="Total Users"
-        value={totalUsers}
+        value={data.totalUsers}
       />
       <StatCard
         icon={<BookOpen className="size-5" />}
         label="Total Topics"
-        value={totalTopics}
+        value={data.totalTopics}
       />
       <StatCard
         icon={<FileText className="size-5" />}
         label="Total Documents"
-        value={totalDocuments}
+        value={data.totalDocuments}
       />
       <StatCard
         icon={<Clock className="size-5" />}
         label="Queue Pending"
-        value={pending}
-        subText={`${processing} processing, ${failed} failed`}
+        value={data.pending}
+        subText={`${data.processing} processing, ${data.failed} failed`}
       />
       <StatCard
         icon={<Server className="size-5" />}
         label="Worker Status"
-        value={<StatusIndicator online={workerOnline} />}
-        subText={workerUrl || undefined}
+        value={<StatusIndicator online={data.workerOnline} />}
+        subText={data.workerUrl || undefined}
       />
       <StatCard
         icon={<Zap className="size-5" />}
         label="Accelerated OCR"
         value={
           <StatusIndicator
-            online={acceleratedOcrOnline}
+            online={data.acceleratedOcrOnline}
             onlineLabel="Enabled"
             offlineLabel="Disabled"
           />

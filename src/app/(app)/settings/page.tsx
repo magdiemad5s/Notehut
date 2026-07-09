@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import {
   Eye,
   EyeOff,
+  Info,
   Loader2,
   Plug,
   RotateCcw,
@@ -46,6 +47,14 @@ export default function SettingsPage() {
   const [testingEmbeddings, setTestingEmbeddings] = useState(false);
 
   const store = useByokStore();
+
+  const PROVIDER_LABELS: Record<LlmProvider, string> = {
+    custom: "Custom Provider",
+    gemini: "Google Gemini",
+    deepseek: "DeepSeek",
+  };
+
+  const isByokConfigured = !!store.llmBaseURL || !!store.llmApiKey;
 
   useEffect(() => {
     setHydrated(true);
@@ -158,6 +167,29 @@ export default function SettingsPage() {
         </p>
       </div>
 
+      {/* Info banner — BYOK is optional */}
+      <div className="flex items-start gap-3 rounded-lg border border-indigo-200 bg-indigo-50 p-4 text-indigo-800">
+        <Info className="mt-0.5 size-5 shrink-0" />
+        <p className="text-sm">
+          NoteHut works out of the box with built-in AI. You only need to
+          configure the settings below if you prefer to bring your own API keys
+          (BYOK) for more control or lower costs.
+        </p>
+      </div>
+
+      {/* Status badge — built-in vs BYOK */}
+      {isByokConfigured ? (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700">
+          <Sparkles className="size-4" />
+          Using your own {PROVIDER_LABELS[store.llmProvider]} key
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm font-medium text-green-700">
+          <span className="text-lg leading-none">✓</span>
+          Using built-in AI (no configuration needed)
+        </div>
+      )}
+
       {/* LLM Provider Configuration */}
       <Card>
         <CardHeader>
@@ -183,12 +215,20 @@ export default function SettingsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="custom">
-                  Custom (OpenAI-compatible)
+                  Custom Provider (bring your own key)
                 </SelectItem>
-                <SelectItem value="gemini">Google Gemini</SelectItem>
-                <SelectItem value="deepseek">DeepSeek</SelectItem>
+                <SelectItem value="gemini">
+                  Google Gemini (bring your own key)
+                </SelectItem>
+                <SelectItem value="deepseek">
+                  DeepSeek (bring your own key)
+                </SelectItem>
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">
+              Leave empty to use NoteHut&apos;s built-in AI. Only select a
+              provider if you want to use your own API key.
+            </p>
           </div>
 
           {/* Base URL */}
@@ -250,7 +290,7 @@ export default function SettingsPage() {
             />
           </div>
         </CardContent>
-        <CardFooter>
+        <CardFooter className="flex-wrap gap-2">
           <Button
             variant="outline"
             onClick={testLlm}
@@ -263,6 +303,20 @@ export default function SettingsPage() {
             )}
             Test Connection
           </Button>
+          {isByokConfigured && (
+            <Button
+              variant="ghost"
+              onClick={() => {
+                store.setLlmBaseURL("");
+                store.setLlmApiKey("");
+                store.setLlmModelName("");
+                toast.info("Cleared BYOK settings. Using built-in AI.");
+              }}
+            >
+              <RotateCcw className="size-4" />
+              Clear and use built-in AI
+            </Button>
+          )}
         </CardFooter>
       </Card>
 

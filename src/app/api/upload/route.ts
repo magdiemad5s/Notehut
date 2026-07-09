@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
 
     if (topicError || !topic) {
       return NextResponse.json(
-        { error: 'Topic not found or not owned by user' },
+        { error: `Topic not found or not owned by user: ${topicError?.message || 'no matching topic'}` },
         { status: 404 },
       )
     }
@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
         .remove([filePath])
         .catch((e) => console.error('Cleanup: storage remove failed:', e))
       return NextResponse.json(
-        { error: 'Failed to create document record' },
+        { error: `Failed to create document record: ${docError?.message || 'unknown error'}` },
         { status: 500 },
       )
     }
@@ -194,7 +194,7 @@ export async function POST(request: NextRequest) {
         .remove([filePath])
         .catch((e) => console.error('Cleanup: storage remove failed:', e))
       return NextResponse.json(
-        { error: 'Failed to create OCR queue entry' },
+        { error: `Failed to create OCR queue entry: ${queueError?.message || 'unknown error'}` },
         { status: 500 },
       )
     }

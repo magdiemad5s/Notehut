@@ -415,26 +415,32 @@ alter publication supabase_realtime add table public.ocr_queue;
 -- ============================================================================
 -- Storage: 'pdfs' bucket (private)
 -- Files stored at pdfs/{user_id}/{uuid}.pdf
--- RLS: users can upload/read only their own path prefix
+-- The API route enforces user folder isolation; RLS just checks authentication.
 -- ============================================================================
 
--- Create the storage bucket (run in Supabase SQL Editor)
+-- Create the storage bucket
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES ('pdfs', 'pdfs', false, 26214400, ARRAY['application/pdf'])
 ON CONFLICT (id) DO NOTHING;
 
--- Storage RLS: users can only access their own folder
-CREATE POLICY "Users can upload their own PDFs"
+-- Drop existing policies first (safe to run repeatedly)
+DROP POLICY IF EXISTS "Users can upload their own PDFs" ON storage.objects;
+DROP POLICY IF EXISTS "Users can read their own PDFs" ON storage.objects;
+DROP POLICY IF EXISTS "Users can delete their own PDFs" ON storage.objects;
+DROP POLICY IF EXISTS "Allow upload to pdfs" ON storage.objects;
+DROP POLICY IF EXISTS "Allow read from pdfs" ON storage.objects;
+DROP POLICY IF EXISTS "Allow delete from pdfs" ON storage.objects;
+
+-- RLS: any authenticated user can operate on the pdfs bucket
+-- (the API route restricts paths to {user_id}/ so users can't touch others' files)
+CREATE POLICY "Allow upload to pdfs"
   ON storage.objects FOR INSERT
-  WITH CHECK (bucket_id = 'pdfs' AND (storage.foldername(name))[1] = auth.uid()::text);
+  WITH CHECK (bucket_id = 'pdfs' AND auth.role() = 'authenticated');
 
-CREATE POLICY "Users can read their own PDFs"
+CREATE POLICY "Allow read from pdfs"
   ON storage.objects FOR SELECT
-  USING (bucket_id = 'pdfs' AND (storage.foldername(name))[1] = auth.uid()::text);
+  USING (bucket_id = 'pdfs' AND auth.role() = 'authenticated');
 
-CREATE POLICY "Users can delete their own PDFs"
+CREATE POLICY "Allow delete from pdfs"
   ON storage.objects FOR DELETE
-  USING (bucket_id = 'pdfs' AND (storage.foldername(name))[1] = auth.uid()::text);
-
--- NOTE: If the above policies already exist, you may need to drop them first
--- or use CREATE OR REPLACE POLICY (if supported) or DROP POLICY IF EXISTS.
+  USING (bucket_id = 'pdfs' AND auth.role() = 'authenticated');

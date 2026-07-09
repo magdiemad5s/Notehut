@@ -446,7 +446,18 @@ on conflict (key) do nothing;
 -- REALTIME
 -- ============================================================================
 
-alter publication supabase_realtime add table public.ocr_queue;
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+    and schemaname = 'public'
+    and tablename = 'ocr_queue'
+  ) then
+    alter publication supabase_realtime add table public.ocr_queue;
+  end if;
+end;
+$$;
 
 -- ============================================================================
 -- STORAGE

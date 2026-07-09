@@ -258,7 +258,9 @@ async function testEmbeddingsConnection(
         model: model || 'qwen3-embedding:0.6b',
         input: 'connection test',
       }),
-      signal: AbortSignal.timeout(15000),
+      // 60s budget: Ollama cold start (loading model into VRAM from disk)
+      // can take 20-40s on Colab. The actual /api/embeddings route uses 120s.
+      signal: AbortSignal.timeout(60000),
     })
 
     if (!response.ok) {

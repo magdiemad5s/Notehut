@@ -98,6 +98,23 @@ create table if not exists public.app_secrets (
 );
 
 -- ============================================================================
+-- FUNCTION: admin check (security definer to avoid RLS recursion)
+-- ============================================================================
+
+create or replace function public.is_admin()
+returns boolean
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  return exists (
+    select 1 from public.profiles
+    where id = auth.uid() and is_admin = true
+  );
+end;
+$$;
+
+-- ============================================================================
 -- TRIGGER: auto-create profile on new user signup
 -- ============================================================================
 
@@ -194,12 +211,7 @@ create policy "Users can read own profile"
 
 create policy "Admins can read all profiles"
   on public.profiles for select
-  using (
-    exists (
-      select 1 from public.profiles
-      where id = auth.uid() and is_admin = true
-    )
-  );
+  using (public.is_admin());
 
 create policy "Users can update own profile"
   on public.profiles for update
@@ -316,10 +328,7 @@ create policy "Users can select own ocr queue items"
   using (
     auth.uid() = user_id
     or
-    exists (
-      select 1 from public.profiles
-      where id = auth.uid() and is_admin = true
-    )
+    public.is_admin()
   );
 
 create policy "Users can insert own ocr queue items"
@@ -329,25 +338,16 @@ create policy "Users can insert own ocr queue items"
 create policy "Only admins can update ocr queue"
   on public.ocr_queue for update
   using (
-    exists (
-      select 1 from public.profiles
-      where id = auth.uid() and is_admin = true
-    )
+    public.is_admin()
   )
   with check (
-    exists (
-      select 1 from public.profiles
-      where id = auth.uid() and is_admin = true
-    )
+    public.is_admin()
   );
 
 create policy "Only admins can delete ocr queue"
   on public.ocr_queue for delete
   using (
-    exists (
-      select 1 from public.profiles
-      where id = auth.uid() and is_admin = true
-    )
+    public.is_admin()
   );
 
 -- user_weaknesses: owner-only
@@ -412,16 +412,10 @@ create policy "Authenticated users can read app settings"
 create policy "Only admins can update app settings"
   on public.app_settings for update
   using (
-    exists (
-      select 1 from public.profiles
-      where id = auth.uid() and is_admin = true
-    )
+    public.is_admin()
   )
   with check (
-    exists (
-      select 1 from public.profiles
-      where id = auth.uid() and is_admin = true
-    )
+    public.is_admin()
   );
 
 -- app_secrets: NO RLS policies — service-role-only access (intentionally omitted)

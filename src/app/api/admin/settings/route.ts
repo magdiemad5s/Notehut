@@ -4,8 +4,17 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { z } from 'zod'
 
 const putSchema = z.object({
-  key: z.enum(['accelerated_ocr_online', 'worker_online']),
-  value: z.boolean(),
+  key: z.enum([
+    'accelerated_ocr_online',
+    'worker_online',
+    'ocr_worker_url',
+    'ocr_worker_api_key',
+    'exam_model',
+    'chat_model',
+    'grading_model',
+    'tutor_model',
+  ]),
+  value: z.union([z.boolean(), z.string().max(2000)]),
 })
 
 export async function GET() {

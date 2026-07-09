@@ -427,7 +427,13 @@ create policy "Only admins can update app settings"
 -- Seed app_settings
 insert into public.app_settings (key, value) values
   ('accelerated_ocr_online', false),
-  ('worker_online', false)
+  ('worker_online', false),
+  ('ocr_worker_url', '""'::jsonb),
+  ('ocr_worker_api_key', '""'::jsonb),
+  ('exam_model', '""'::jsonb),
+  ('chat_model', '""'::jsonb),
+  ('grading_model', '""'::jsonb),
+  ('tutor_model', '""'::jsonb)
 on conflict (key) do nothing;
 
 -- Seed app_secrets

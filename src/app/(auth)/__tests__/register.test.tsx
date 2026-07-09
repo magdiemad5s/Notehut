@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import RegisterPage from '@/app/(auth)/register/page'
 
+process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000'
+
 const mockPush = vi.fn()
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush }),
@@ -89,6 +91,9 @@ describe('RegisterPage', () => {
       expect(mockSignUp).toHaveBeenCalledWith({
         email: 'test@example.com',
         password: 'password123',
+        options: {
+          emailRedirectTo: 'http://localhost:3000/login?registered=true',
+        },
       })
     })
   })

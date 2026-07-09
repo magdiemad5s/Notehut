@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,20 +16,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, MailCheck } from "lucide-react";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const registered = searchParams.get("registered") === "true";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [needsConfirmation, setNeedsConfirmation] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    setNeedsConfirmation(false);
 
-    // Validate inputs before calling Supabase
     if (!email.trim() || !password.trim()) {
       const message = "Email and password are required.";
       setError(message);
@@ -47,8 +51,12 @@ export default function LoginPage() {
       });
 
       if (signInError) {
+        const isUnconfirmed = signInError.message.toLowerCase().includes("email not confirmed");
         setError(signInError.message);
-        toast.error(signInError.message);
+        setNeedsConfirmation(isUnconfirmed);
+        if (!isUnconfirmed) {
+          toast.error(signInError.message);
+        }
         return;
       }
 
@@ -64,6 +72,27 @@ export default function LoginPage() {
     }
   }
 
+  async function handleResendConfirmation() {
+    if (!email.trim()) return;
+    setResending(true);
+    try {
+      const supabase = createClient();
+      const { error: resendError } = await supabase.auth.resend({
+        type: "signup",
+        email,
+      });
+      if (resendError) {
+        toast.error(resendError.message);
+      } else {
+        toast.success("Confirmation email resent! Check your inbox.");
+      }
+    } catch {
+      toast.error("Failed to resend confirmation email.");
+    } finally {
+      setResending(false);
+    }
+  }
+
   return (
     <Card className="w-full max-w-sm">
       <CardHeader>
@@ -72,6 +101,12 @@ export default function LoginPage() {
           Sign in to your account to continue
         </CardDescription>
       </CardHeader>
+      {registered && (
+        <div className="mx-(--card-spacing) mb-2 flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+          <MailCheck className="mt-0.5 size-4 shrink-0" />
+          <span>Account created! Check your email for the confirmation link, then sign in.</span>
+        </div>
+      )}
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
           <div className="space-y-2">
@@ -96,7 +131,22 @@ export default function LoginPage() {
             />
           </div>
           {error && (
-            <p className="text-sm text-destructive">{error}</p>
+            <div className="space-y-2">
+              <p className="text-sm text-destructive">{error}</p>
+              {needsConfirmation && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  disabled={resending}
+                  onClick={handleResendConfirmation}
+                >
+                  {resending && <Loader2 className="animate-spin" />}
+                  {resending ? "Resending..." : "Resend confirmation email"}
+                </Button>
+              )}
+            </div>
           )}
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
@@ -116,5 +166,13 @@ export default function LoginPage() {
         </CardFooter>
       </form>
     </Card>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

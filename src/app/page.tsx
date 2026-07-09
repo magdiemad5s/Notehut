@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
 import { 
   BookOpen, 
   Brain, 
@@ -18,7 +19,10 @@ import {
   ShieldCheck
 } from "lucide-react";
 
-export default function Home() {
+export default async function Home() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
   return (
     <div className="min-h-screen bg-[#f8f9ff] text-[#0b1c30] font-sans selection:bg-indigo-100 selection:text-indigo-900">
       {/* Header */}
@@ -41,18 +45,29 @@ export default function Home() {
           </nav>
 
           <div className="flex items-center gap-4">
-            <Link 
-              href="/login" 
-              className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors px-3 py-2 rounded-md"
-            >
-              Sign In
-            </Link>
-            <Link 
-              href="/register" 
-              className="bg-slate-900 text-white hover:bg-slate-800 text-sm font-medium px-4 py-2 rounded-lg transition-all shadow-sm"
-            >
-              Get Started
-            </Link>
+            {user ? (
+              <Link 
+                href="/dashboard" 
+                className="bg-slate-900 text-white hover:bg-slate-800 text-sm font-medium px-4 py-2 rounded-lg transition-all shadow-sm"
+              >
+                Dashboard
+              </Link>
+            ) : (
+              <>
+                <Link 
+                  href="/login" 
+                  className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors px-3 py-2 rounded-md"
+                >
+                  Sign In
+                </Link>
+                <Link 
+                  href="/register" 
+                  className="bg-slate-900 text-white hover:bg-slate-800 text-sm font-medium px-4 py-2 rounded-lg transition-all shadow-sm"
+                >
+                  Get Started
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -81,19 +96,31 @@ export default function Home() {
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
-              <Link 
-                href="/register" 
-                className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-8 py-3.5 rounded-xl transition-all shadow-md shadow-indigo-500/10 flex items-center justify-center gap-2 group"
-              >
-                Start Studying Free
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </Link>
-              <Link 
-                href="/login" 
-                className="w-full sm:w-auto bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-medium px-8 py-3.5 rounded-xl transition-all flex items-center justify-center gap-2"
-              >
-                Go to Dashboard
-              </Link>
+              {user ? (
+                <Link 
+                  href="/dashboard" 
+                  className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-8 py-3.5 rounded-xl transition-all shadow-md shadow-indigo-500/10 flex items-center justify-center gap-2 group"
+                >
+                  Go to Dashboard
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </Link>
+              ) : (
+                <>
+                  <Link 
+                    href="/register" 
+                    className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-8 py-3.5 rounded-xl transition-all shadow-md shadow-indigo-500/10 flex items-center justify-center gap-2 group"
+                  >
+                    Start Studying Free
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </Link>
+                  <Link 
+                    href="/login" 
+                    className="w-full sm:w-auto bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-medium px-8 py-3.5 rounded-xl transition-all flex items-center justify-center gap-2"
+                  >
+                    Go to Dashboard
+                  </Link>
+                </>
+              )}
             </div>
           </div>
 
@@ -509,19 +536,31 @@ export default function Home() {
             Join NoteHut today and experience the power of adaptive, AI-driven study tools with complete privacy and cost control.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link 
-              href="/register" 
-              className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-8 py-3.5 rounded-xl transition-all shadow-md shadow-indigo-500/10 flex items-center justify-center gap-2 group"
-            >
-              Create Free Account
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </Link>
-            <Link 
-              href="/login" 
-              className="w-full sm:w-auto bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 font-medium px-8 py-3.5 rounded-xl transition-all flex items-center justify-center gap-2"
-            >
-              Sign In to NoteHut
-            </Link>
+            {user ? (
+              <Link 
+                href="/dashboard" 
+                className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-8 py-3.5 rounded-xl transition-all shadow-md shadow-indigo-500/10 flex items-center justify-center gap-2 group"
+              >
+                Go to Dashboard
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </Link>
+            ) : (
+              <>
+                <Link 
+                  href="/register" 
+                  className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-8 py-3.5 rounded-xl transition-all shadow-md shadow-indigo-500/10 flex items-center justify-center gap-2 group"
+                >
+                  Create Free Account
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </Link>
+                <Link 
+                  href="/login" 
+                  className="w-full sm:w-auto bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 font-medium px-8 py-3.5 rounded-xl transition-all flex items-center justify-center gap-2"
+                >
+                  Sign In to NoteHut
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </section>

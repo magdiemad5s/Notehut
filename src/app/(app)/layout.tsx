@@ -4,13 +4,18 @@ import {
   FileText,
   MessageSquare,
   Settings,
+  BookOpen,
+  BarChart3,
 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
+import { LogoutButton } from "@/components/logout-button";
 
 const navLinks = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/documents", label: "Documents", icon: FileText },
   { href: "/chat", label: "Chat", icon: MessageSquare },
+  { href: "/topics", label: "Topics", icon: BookOpen },
+  { href: "/weaknesses", label: "Weaknesses", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -33,6 +38,7 @@ export default function AppLayout({
               {link.label}
             </Link>
           ))}
+          <LogoutButton />
         </nav>
       </header>
       <main className="flex-1 p-6">{children}</main>

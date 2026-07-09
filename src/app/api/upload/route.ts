@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
     if (uploadError) {
       console.error('Storage upload error:', uploadError)
       return NextResponse.json(
-        { error: 'Failed to upload file to storage' },
+        { error: `Storage upload failed: ${uploadError.message}. Ensure the 'pdfs' bucket exists in Supabase Storage.` },
         { status: 500 },
       )
     }

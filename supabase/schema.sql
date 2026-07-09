@@ -413,11 +413,28 @@ alter publication supabase_realtime add table public.ocr_queue;
 -- ============================================================================
 -- STORAGE
 -- ============================================================================
--- Bucket: 'pdfs' (private)
--- Path policy: files stored at pdfs/{user_id}/{uuid}.pdf
+-- Storage: 'pdfs' bucket (private)
+-- Files stored at pdfs/{user_id}/{uuid}.pdf
 -- RLS: users can upload/read only their own path prefix
--- (These are configured via Supabase Dashboard / storage management, not SQL)
 -- ============================================================================
 
--- NOTE: Storage bucket 'pdfs' and its RLS policies must be created
--- separately via the Supabase Dashboard or storage SQL API.
+-- Create the storage bucket (run in Supabase SQL Editor)
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('pdfs', 'pdfs', false, 26214400, ARRAY['application/pdf'])
+ON CONFLICT (id) DO NOTHING;
+
+-- Storage RLS: users can only access their own folder
+CREATE POLICY "Users can upload their own PDFs"
+  ON storage.objects FOR INSERT
+  WITH CHECK (bucket_id = 'pdfs' AND (storage.foldername(name))[1] = auth.uid()::text);
+
+CREATE POLICY "Users can read their own PDFs"
+  ON storage.objects FOR SELECT
+  USING (bucket_id = 'pdfs' AND (storage.foldername(name))[1] = auth.uid()::text);
+
+CREATE POLICY "Users can delete their own PDFs"
+  ON storage.objects FOR DELETE
+  USING (bucket_id = 'pdfs' AND (storage.foldername(name))[1] = auth.uid()::text);
+
+-- NOTE: If the above policies already exist, you may need to drop them first
+-- or use CREATE OR REPLACE POLICY (if supported) or DROP POLICY IF EXISTS.

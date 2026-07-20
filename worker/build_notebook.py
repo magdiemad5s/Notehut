@@ -10,12 +10,18 @@ import nbformat as nbf
 ROOT = Path(__file__).resolve().parent
 OUTPUT = ROOT / "notehut_colab.ipynb"
 BUNDLE_NAMES = ("ocr_worker.py", "runtime_manager.py", "requirements.txt")
+
+
+def read_bundle_bytes(name: str) -> bytes:
+    return (ROOT / name).read_bytes().replace(b"\r\n", b"\n")
+
+
 BUNDLE = {
-    name: base64.b64encode((ROOT / name).read_bytes()).decode("ascii")
+    name: base64.b64encode(read_bundle_bytes(name)).decode("ascii")
     for name in BUNDLE_NAMES
 }
 BUNDLE_HASHES = {
-    name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest()
+    name: hashlib.sha256(read_bundle_bytes(name)).hexdigest()
     for name in BUNDLE_NAMES
 }
 

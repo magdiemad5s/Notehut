@@ -165,40 +165,38 @@ export function OcrWorkerSection() {
 
     setTesting(true)
     try {
+      let keyForTest = workerApiKey
       if (isMaskedKey(workerApiKey)) {
-        toast.error('Enter the worker API key again to test this connection')
+        // Masked secrets are intentionally never returned. Requesting a
+        // server-side stored-configuration health check avoids exposing them.
+        keyForTest = ''
+      }
+      if (!keyForTest && !isMaskedKey(workerApiKey)) {
+        toast.error('Worker API key is required to test this connection')
         return
       }
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 5000)
-
-      const res = await fetch(
-        `${workerUrl.replace(/\/+$/, "")}/health`,
-        {
-          method: "GET",
-          signal: controller.signal,
-          headers: workerApiKey
-            ? { Authorization: `Bearer ${workerApiKey}` }
-            : undefined,
-        },
-      )
-
-      clearTimeout(timeout)
+      const useSavedConfiguration =
+        isMaskedKey(workerApiKey) && !isChangingWorkerKey
+      const res = await fetch('/api/admin/worker-health', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workerUrl,
+          ...(keyForTest ? { workerApiKey: keyForTest } : { useSavedConfiguration }),
+        }),
+      })
 
       if (res.ok) {
         toast.success("Worker responded successfully")
       } else {
-        toast.error(`Worker returned status ${res.status}`)
+        const body = await res.json().catch(() => ({ error: `Worker returned status ${res.status}` }))
+        toast.error(body.error || `Worker returned status ${res.status}`)
       }
     } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") {
-        toast.error("Worker request timed out after 5 seconds")
-      } else {
-        toast.error(
-          "Failed to reach worker: " +
-            (err instanceof Error ? err.message : "Unknown error"),
-        )
-      }
+      toast.error(
+        "Failed to reach worker: " +
+          (err instanceof Error ? err.message : "Unknown error"),
+      )
     } finally {
       setTesting(false)
     }

@@ -66,6 +66,29 @@ describe('OCR queue ownership contract', () => {
   })
 })
 
+describe('database vector contract', () => {
+  it('resolves pgvector inside the chunk replacement RPC', () => {
+    const schema = readFileSync(resolve(process.cwd(), 'supabase/schema.sql'), 'utf8')
+    const functionStart = schema.indexOf(
+      'create or replace function public.replace_document_chunks',
+    )
+    const functionEnd = schema.indexOf(
+      'revoke all on function public.replace_document_chunks',
+      functionStart,
+    )
+
+    expect(functionStart).toBeGreaterThanOrEqual(0)
+    expect(functionEnd).toBeGreaterThan(functionStart)
+
+    const functionDefinition = schema.slice(functionStart, functionEnd)
+    expect(functionDefinition).toMatch(
+      /set\s+search_path\s*=\s*pg_catalog\s*,\s*extensions\s*,\s*public/i,
+    )
+    expect(functionDefinition).toContain('::vector')
+    expect(functionDefinition).not.toContain("set search_path = ''")
+  })
+})
+
 describe('objective grading', () => {
   it('does not let duplicate checkbox selections count as extra answers', () => {
     const checkbox = QuestionSchema.parse({

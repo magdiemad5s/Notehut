@@ -43,5 +43,6 @@ next-env.d.ts
 # temporary files
 .tmp/
 .opencode/
-
+__pycache__/
+*.py[cod]
 

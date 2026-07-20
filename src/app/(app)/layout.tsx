@@ -1,26 +1,8 @@
 import Link from "next/link";
-import {
-  LayoutDashboard,
-  FileText,
-  MessageSquare,
-  Settings,
-  BookOpen,
-  BarChart3,
-  ShieldCheck,
-} from "lucide-react";
 import { LogoutButton } from "@/components/logout-button";
 import { createClient } from "@/lib/supabase/server";
 import { AppNavigation } from "@/components/app-navigation";
 import { BrandMark } from "@/components/brand-mark";
-
-const navLinks = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/documents", label: "Documents", icon: FileText },
-  { href: "/chat", label: "Chat", icon: MessageSquare },
-  { href: "/topics", label: "Topics", icon: BookOpen },
-  { href: "/weaknesses", label: "Weaknesses", icon: BarChart3 },
-  { href: "/settings", label: "Settings", icon: Settings },
-];
 
 export default async function AppLayout({
   children,
@@ -39,10 +21,6 @@ export default async function AppLayout({
     isAdmin = !!profile?.is_admin;
   }
 
-  const links = isAdmin
-    ? [...navLinks, { href: "/admin", label: "Admin", icon: ShieldCheck }]
-    : navLinks;
-
   return (
     <div className="flex min-h-dvh flex-col bg-muted/20">
       <header className="sticky top-0 z-40 border-b bg-background/90 shadow-xs backdrop-blur supports-[backdrop-filter]:bg-background/75">
@@ -55,7 +33,7 @@ export default async function AppLayout({
             <BrandMark iconClassName="size-8 sm:size-9" wordmarkClassName="hidden xl:inline" />
           </Link>
           <div className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <AppNavigation links={links} />
+            <AppNavigation isAdmin={isAdmin} />
           </div>
           <LogoutButton />
         </nav>

@@ -67,7 +67,10 @@ export async function GET() {
             signal: AbortSignal.timeout(3000),
           },
         )
-        workerOnline = response.ok
+        if (response.ok) {
+          const health = await response.json().catch(() => null)
+          workerOnline = health?.status === 'ok'
+        }
       } catch {
         workerOnline = false
       }

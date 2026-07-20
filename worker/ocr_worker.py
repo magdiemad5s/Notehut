@@ -25,7 +25,7 @@ import httpx
 import torch
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 # =============================================================================
 # Configuration — read from env vars only
@@ -532,7 +532,18 @@ async def health(request: Request):
     if unauthorized:
         return unauthorized
     gpu_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else None
-    return {
+    ollama_online = None
+    if EMBEDDINGS_ENABLED or LLM_ENABLED:
+        try:
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                response = await client.get(f"{OLLAMA_URL.rstrip('/')}/api/version")
+                response.raise_for_status()
+            ollama_online = True
+        except Exception as error:
+            logger.warning("Ollama health check failed: %s", error)
+            ollama_online = False
+
+    payload = {
         "status": "ok",
         "role": NOTEHUT_ROLE,
         "capabilities": {
@@ -546,7 +557,12 @@ async def health(request: Request):
             else "tesseract"
         ) if OCR_ENABLED else None,
         "gpu": gpu_name,
+        "ollama_online": ollama_online,
     }
+    if ollama_online is False:
+        payload["status"] = "degraded"
+        return JSONResponse(payload, status_code=503)
+    return payload
 
 
 @app.get("/status")

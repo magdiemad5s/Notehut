@@ -261,7 +261,10 @@ create or replace function public.replace_document_chunks(
 )
 returns integer
 language plpgsql
-set search_path = ''
+-- Supabase normally installs pgvector in `extensions`, while a fresh
+-- self-hosted database may install it in `public`. Keep both trusted schemas
+-- available so the unqualified `vector` cast resolves in either deployment.
+set search_path = pg_catalog, extensions, public
 as $$
 declare
   inserted_count integer;

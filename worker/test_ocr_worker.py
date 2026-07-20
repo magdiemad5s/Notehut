@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+import asyncio
 import importlib.util
 import sys
 from types import ModuleType, SimpleNamespace
@@ -38,6 +39,7 @@ if importlib.util.find_spec("fastapi") is None:
     cors.CORSMiddleware = object
     responses = ModuleType("fastapi.responses")
     responses.StreamingResponse = Response
+    responses.JSONResponse = Response
     sys.modules.update({
         "fastapi": fastapi,
         "fastapi.middleware": ModuleType("fastapi.middleware"),
@@ -95,6 +97,20 @@ class OcrWorkerContractTests(unittest.TestCase):
 
         with patch.object(ocr_worker, "WORKER_API_KEY", ""):
             response = ocr_worker._validate_api_key(Request())
+        self.assertEqual(response.status_code, 503)
+
+    def test_ai_health_degrades_when_ollama_is_unavailable(self):
+        class Request:
+            headers = {"Authorization": "Bearer test-key"}
+
+        with (
+            patch.object(ocr_worker, "WORKER_API_KEY", "test-key"),
+            patch.object(ocr_worker, "EMBEDDINGS_ENABLED", True),
+            patch.object(ocr_worker, "LLM_ENABLED", False),
+            patch("ocr_worker.httpx.AsyncClient", side_effect=RuntimeError("offline")),
+        ):
+            response = asyncio.run(ocr_worker.health(Request()))
+
         self.assertEqual(response.status_code, 503)
 
 

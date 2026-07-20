@@ -2,18 +2,43 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import type { LucideIcon } from 'lucide-react'
+import {
+  BarChart3,
+  BookOpen,
+  FileText,
+  LayoutDashboard,
+  MessageSquare,
+  Settings,
+  ShieldCheck,
+  type LucideIcon,
+} from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
-export type AppNavLink = {
+type AppNavLink = {
   href: string
   label: string
   icon: LucideIcon
 }
 
-export function AppNavigation({ links }: { links: AppNavLink[] }) {
+const navLinks: AppNavLink[] = [
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/documents', label: 'Documents', icon: FileText },
+  { href: '/chat', label: 'Chat', icon: MessageSquare },
+  { href: '/topics', label: 'Topics', icon: BookOpen },
+  { href: '/weaknesses', label: 'Weaknesses', icon: BarChart3 },
+  { href: '/settings', label: 'Settings', icon: Settings },
+]
+
+const adminLink: AppNavLink = {
+  href: '/admin',
+  label: 'Admin',
+  icon: ShieldCheck,
+}
+
+export function AppNavigation({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname()
+  const links = isAdmin ? [...navLinks, adminLink] : navLinks
 
   return (
     <div className="flex min-w-max items-center gap-0.5 sm:gap-1">

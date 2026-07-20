@@ -405,8 +405,14 @@ def stop_process(name: str) -> None:
         (RUNTIME_DIR / "cloudflare_tunnel_token.txt").unlink(missing_ok=True)
 
 
-def _start_process(name: str, command: list[str], env: dict[str, str]) -> int:
-    stop_process(name)
+def _start_process(
+    name: str,
+    command: list[str],
+    env: dict[str, str],
+    replace: bool = True,
+) -> int:
+    if replace:
+        stop_process(name)
     log_path = RUNTIME_DIR / f"{name}.log"
     log_handle = log_path.open("w", encoding="utf-8")
     process = subprocess.Popen(
@@ -609,6 +615,7 @@ def start_tunnel(
     token = load_secret("CLOUDFLARE_TUNNEL_TOKEN", required=True)
     cloudflared = install_cloudflared()
     env = os.environ.copy()
+    stop_process("cloudflared")
     token_path = RUNTIME_DIR / "cloudflare_tunnel_token.txt"
     descriptor = os.open(token_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(descriptor, "w", encoding="utf-8") as token_file:
@@ -617,6 +624,7 @@ def start_tunnel(
         "cloudflared",
         [cloudflared, "tunnel", "--no-autoupdate", "run", "--token-file", str(token_path)],
         env,
+        replace=False,
     )
     public_url = load_secret("CLOUDFLARE_PUBLIC_URL", required=True).rstrip("/")
     try:
@@ -667,6 +675,15 @@ def validate_gateway(public_url: str, plan: RuntimePlan) -> None:
             first_chunk = next((chunk for chunk in response.iter_bytes() if chunk), b"")
             if not first_chunk:
                 raise RuntimeError("The tunnel did not deliver a streamed LLM response")
+
+    health = httpx.get(
+        f"{public_url.rstrip('/')}/health",
+        headers=headers,
+        timeout=20,
+    )
+    health.raise_for_status()
+    if health.json().get("status") != "ok":
+        raise RuntimeError("Gateway health became degraded during validation")
 
 
 def deployment_config(public_url: Optional[str], plan: RuntimePlan) -> dict[str, object]:

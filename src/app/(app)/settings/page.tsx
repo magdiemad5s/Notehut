@@ -40,21 +40,22 @@ const PROVIDER_PRESETS: Record<LlmProvider, string> = {
   deepseek: "https://api.deepseek.com",
 };
 
+const PROVIDER_LABELS: Record<LlmProvider, string> = {
+  custom: "Custom Provider",
+  gemini: "Google Gemini",
+  deepseek: "DeepSeek",
+};
+
 export default function SettingsPage() {
   const [hydrated, setHydrated] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
+  const [showEmbeddingsApiKey, setShowEmbeddingsApiKey] = useState(false);
   const [testingLlm, setTestingLlm] = useState(false);
   const [testingEmbeddings, setTestingEmbeddings] = useState(false);
 
   const store = useByokStore();
 
-  const PROVIDER_LABELS: Record<LlmProvider, string> = {
-    custom: "Custom Provider",
-    gemini: "Google Gemini",
-    deepseek: "DeepSeek",
-  };
-
-  const isByokConfigured = !!store.llmBaseURL || !!store.llmApiKey;
+  const isByokConfigured = !!store.llmApiKey && !!store.llmModelName;
 
   useEffect(() => {
     setHydrated(true);
@@ -85,7 +86,7 @@ export default function SettingsPage() {
   };
 
   const testLlm = async () => {
-    if (!store.llmBaseURL) {
+    if (store.llmProvider !== "gemini" && !store.llmBaseURL) {
       toast.error("LLM Base URL is required");
       return;
     }
@@ -157,7 +158,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
@@ -168,7 +169,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Info banner — BYOK is optional */}
-      <div className="flex items-start gap-3 rounded-lg border border-indigo-200 bg-indigo-50 p-4 text-indigo-800">
+      <div className="flex items-start gap-3 rounded-lg border border-indigo-200 bg-indigo-50 p-4 text-indigo-800 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-200">
         <Info className="mt-0.5 size-5 shrink-0" />
         <p className="text-sm">
           NoteHut works out of the box with built-in AI. You only need to
@@ -179,12 +180,12 @@ export default function SettingsPage() {
 
       {/* Status badge — built-in vs BYOK */}
       {isByokConfigured ? (
-        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700">
+        <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
           <Sparkles className="size-4" />
           Using your own {PROVIDER_LABELS[store.llmProvider]} key
         </div>
       ) : (
-        <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm font-medium text-green-700">
+        <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">
           <span className="text-lg leading-none">✓</span>
           Using built-in AI (no configuration needed)
         </div>
@@ -273,8 +274,9 @@ export default function SettingsPage() {
               </button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Your API key is stored locally in your browser and never sent to
-              our servers.
+               Your API key is stored locally in your browser and sent only in
+               transient requests to NoteHut&apos;s AI routes; it is not persisted
+               by the server.
             </p>
           </div>
 
@@ -294,7 +296,12 @@ export default function SettingsPage() {
           <Button
             variant="outline"
             onClick={testLlm}
-            disabled={testingLlm || !store.llmBaseURL}
+            disabled={
+              testingLlm ||
+              !store.llmApiKey ||
+              !store.llmModelName ||
+              (store.llmProvider !== "gemini" && !store.llmBaseURL)
+            }
           >
             {testingLlm ? (
               <Loader2 className="size-4 animate-spin" />
@@ -329,7 +336,7 @@ export default function SettingsPage() {
           </CardTitle>
           <CardDescription>
             Configure the embeddings endpoint for document vectorization. Use
-            your local Ollama instance or a Colab/Kaggle tunnel.
+            your local Ollama instance or an authenticated NoteHut gateway.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -339,13 +346,39 @@ export default function SettingsPage() {
             <Input
               id="embeddings-base-url"
               type="url"
-              placeholder="http://localhost:11434/v1 or https://your-tunnel.trycloudflare.com/v1"
+              placeholder="http://localhost:11434/v1 or https://your-gateway.example.com/ollama/v1"
               value={store.embeddingsBaseURL}
               onChange={(e) => store.setEmbeddingsBaseURL(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              Ollama&apos;s OpenAI-compatible endpoint. For Colab tunnels, paste
-              the tunnel URL + /v1.
+              Ollama&apos;s OpenAI-compatible endpoint. For a NoteHut notebook
+              gateway, use the generated URL ending in /ollama/v1.
+            </p>
+          </div>
+
+          {/* Embeddings Model */}
+          <div className="space-y-2">
+            <Label htmlFor="embeddings-api-key">Embeddings API Key</Label>
+            <div className="relative">
+              <Input
+                id="embeddings-api-key"
+                type={showEmbeddingsApiKey ? "text" : "password"}
+                placeholder="Required for an authenticated remote gateway"
+                value={store.embeddingsApiKey}
+                onChange={(e) => store.setEmbeddingsApiKey(e.target.value)}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowEmbeddingsApiKey(!showEmbeddingsApiKey)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label={showEmbeddingsApiKey ? "Hide embeddings API key" : "Show embeddings API key"}
+              >
+                {showEmbeddingsApiKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Use the worker key printed by the deployment notebook. Leave blank only for a trusted local unauthenticated endpoint.
             </p>
           </div>
 

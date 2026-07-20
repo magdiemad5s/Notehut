@@ -5,6 +5,7 @@ import { Play, RotateCcw, Trash2, RefreshCw, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { byokToHeaders, useByokConfig } from '@/lib/store/byok-store'
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                     */
@@ -34,6 +35,7 @@ const statusConfig: Record<string, { label: string; className: string }> = {
   pending:    { label: 'Pending',    className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' },
   processing: { label: 'Processing', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' },
   completed:  { label: 'Completed',  className: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' },
+  embedded:   { label: 'Embedded',   className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' },
   failed:     { label: 'Failed',     className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' },
 }
 
@@ -76,6 +78,7 @@ export function AdminQueueSection() {
   const [items, setItems] = useState<QueueItem[]>([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const byok = useByokConfig()
 
   /* ------ Fetch queue ------ */
 
@@ -107,10 +110,14 @@ export function AdminQueueSection() {
     async (action: 'process' | 'retry' | 'delete', queueId: string) => {
       setActionLoading(queueId)
       try {
-        const res = await fetch('/api/admin/queue', {
+        const endpoint = action === 'process' ? '/api/embeddings' : '/api/admin/queue'
+        const requestBody = action === 'process'
+          ? { queueId }
+          : { action, queueId }
+        const res = await fetch(endpoint, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action, queueId }),
+          headers: { 'Content-Type': 'application/json', ...byokToHeaders(byok) },
+          body: JSON.stringify(requestBody),
         })
         if (!res.ok) {
           const data = await res.json().catch(() => ({}))
@@ -130,41 +137,41 @@ export function AdminQueueSection() {
         setActionLoading(null)
       }
     },
-    [fetchQueue],
+    [fetchQueue, byok],
   )
 
-  /* ------ Process all pending ------ */
+  /* ------ Embed all completed OCR items ------ */
 
   const handleProcessAll = useCallback(async () => {
-    const pendingItems = items.filter((item) => item.status === 'pending')
-    if (pendingItems.length === 0) {
-      toast.error('No pending items to process')
+    const completedItems = items.filter((item) => item.status === 'completed')
+    if (completedItems.length === 0) {
+      toast.error('No completed OCR items to embed')
       return
     }
 
     let processed = 0
     let failed = 0
 
-    for (const item of pendingItems) {
+    for (const item of completedItems) {
       setActionLoading(item.id)
       try {
-        const res = await fetch('/api/admin/queue', {
+        const res = await fetch('/api/embeddings', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'process', queueId: item.id }),
+          headers: { 'Content-Type': 'application/json', ...byokToHeaders(byok) },
+          body: JSON.stringify({ queueId: item.id }),
         })
         if (res.ok) {
           processed++
         } else {
           const data = await res.json().catch(() => ({}))
           toast.error(
-            `Failed to process "${item.document_filename}": ${data.error || res.statusText}`,
+            `Failed to embed "${item.document_filename}": ${data.error || res.statusText}`,
           )
           failed++
         }
       } catch (error) {
         toast.error(
-          `Error processing "${item.document_filename}": ${error instanceof Error ? error.message : 'Unknown error'}`,
+          `Error embedding "${item.document_filename}": ${error instanceof Error ? error.message : 'Unknown error'}`,
         )
         failed++
       }
@@ -173,20 +180,21 @@ export function AdminQueueSection() {
     setActionLoading(null)
 
     if (processed > 0) {
-      toast.success(`Processed ${processed} item${processed !== 1 ? 's' : ''}`)
+      toast.success(`Embedded ${processed} item${processed !== 1 ? 's' : ''}`)
     }
     if (failed > 0) {
       toast.error(`${failed} item${failed !== 1 ? 's' : ''} failed`)
     }
 
     await fetchQueue()
-  }, [items, fetchQueue])
+  }, [items, fetchQueue, byok])
 
   /* ------ Derived counts ------ */
 
   const pendingCount = items.filter((i) => i.status === 'pending').length
   const processingCount = items.filter((i) => i.status === 'processing').length
   const completedCount = items.filter((i) => i.status === 'completed').length
+  const embeddedCount = items.filter((i) => i.status === 'embedded').length
   const failedCount = items.filter((i) => i.status === 'failed').length
 
   /* ------ Render ------ */
@@ -197,7 +205,7 @@ export function AdminQueueSection() {
         <CardTitle>OCR Queue</CardTitle>
         <p className="text-sm text-muted-foreground">
           {pendingCount} pending &middot; {processingCount} processing &middot;{' '}
-          {completedCount} completed &middot; {failedCount} failed
+          {completedCount} OCR complete &middot; {embeddedCount} embedded &middot; {failedCount} failed
         </p>
       </CardHeader>
 
@@ -206,7 +214,7 @@ export function AdminQueueSection() {
         <div className="mb-4 flex items-center gap-2">
           <Button
             onClick={handleProcessAll}
-            disabled={pendingCount === 0 || actionLoading !== null}
+            disabled={completedCount === 0 || actionLoading !== null}
             size="sm"
           >
             {actionLoading ? (
@@ -214,7 +222,7 @@ export function AdminQueueSection() {
             ) : (
               <Play className="size-4" />
             )}
-            Process All Pending
+            Embed All Completed
           </Button>
 
           <Button
@@ -295,7 +303,7 @@ export function AdminQueueSection() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
-                        {item.status === 'pending' && (
+                        {item.status === 'completed' && (
                           <Button
                             size="sm"
                             variant="default"
@@ -307,7 +315,7 @@ export function AdminQueueSection() {
                             ) : (
                               <Play className="size-3.5" />
                             )}
-                            Process
+                            Embed
                           </Button>
                         )}
 

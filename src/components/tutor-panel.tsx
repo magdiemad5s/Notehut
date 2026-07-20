@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Card } from '@/components/ui/card'
-import { byokToHeaders, useByokStore } from '@/lib/store/byok-store'
+import { byokToHeaders, useByokConfig } from '@/lib/store/byok-store'
 
 interface TutorPanelProps {
   topicId: string
@@ -24,7 +24,7 @@ function getMessageText(parts: { type: string; text?: string }[]): string {
 }
 
 export function TutorPanel({ topicId, topicName }: TutorPanelProps) {
-  const byok = useByokStore()
+  const byok = useByokConfig()
   const [input, setInput] = useState('')
 
   // Memoize transport to avoid re-creating it on every render (causes
@@ -51,7 +51,7 @@ export function TutorPanel({ topicId, topicName }: TutorPanelProps) {
   }
 
   return (
-    <Card className="flex flex-col h-[600px]">
+    <Card className="flex h-[calc(100dvh-13rem)] min-h-[28rem] max-h-[600px] flex-col overflow-hidden">
       {messages.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-2 text-muted-foreground">
           <GraduationCap className="size-8" />
@@ -59,7 +59,7 @@ export function TutorPanel({ topicId, topicName }: TutorPanelProps) {
         </div>
       ) : (
         <ScrollArea className="flex-1 p-4">
-          <div className="space-y-4">
+          <div className="space-y-4" aria-live="polite">
             {messages.map((message) => {
               const text = getMessageText(message.parts)
               return (
@@ -70,8 +70,8 @@ export function TutorPanel({ topicId, topicName }: TutorPanelProps) {
                   <div
                     className={
                       message.role === 'user'
-                        ? 'max-w-[80%] rounded-lg px-3 py-2 text-sm bg-primary text-primary-foreground'
-                        : 'max-w-[80%] rounded-lg px-3 py-2 text-sm bg-muted'
+                        ? 'max-w-[85%] rounded-2xl rounded-br-md bg-primary px-3 py-2 text-sm leading-6 text-primary-foreground sm:max-w-[75%]'
+                        : 'max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-bl-md bg-muted px-3 py-2 text-sm leading-6 sm:max-w-[75%]'
                     }
                   >
                     {text}
@@ -88,14 +88,14 @@ export function TutorPanel({ topicId, topicName }: TutorPanelProps) {
             )}
           </div>
           {error && (
-            <p className="text-sm text-red-500 mt-2">
+            <p role="alert" className="mt-2 text-sm text-destructive">
               {error instanceof Error ? error.message : 'An error occurred'}
             </p>
           )}
         </ScrollArea>
       )}
 
-      <form onSubmit={handleSubmit} className="flex gap-2 p-3 border-t">
+      <form onSubmit={handleSubmit} className="flex gap-2 border-t bg-card p-3">
         <Input
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -107,7 +107,7 @@ export function TutorPanel({ topicId, topicName }: TutorPanelProps) {
             Stop
           </Button>
         ) : (
-          <Button type="submit" disabled={!input.trim()}>
+          <Button type="submit" size="icon" aria-label="Send tutor message" title="Send tutor message" disabled={!input.trim()}>
             <Send className="size-4" />
           </Button>
         )}

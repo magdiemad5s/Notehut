@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
+import { safeServerFetch } from '@/lib/security/outbound-url'
 
 const testRequestSchema = z.object({
   type: z.enum(['llm', 'embeddings']),
@@ -31,9 +32,10 @@ function readByokFromRequest(request: NextRequest, body: z.infer<typeof testRequ
 
   // Embeddings config: separate header namespace
   const embeddingsBaseURL = getHeader('x-byok-embeddings-base-url') ?? baseURL
+  const embeddingsApiKey = getHeader('x-byok-embeddings-api-key') ?? body.apiKey
   const embeddingsModel = getHeader('x-byok-embeddings-model') ?? body.model
 
-  return { provider, baseURL, apiKey, model, embeddingsBaseURL, embeddingsModel }
+  return { provider, baseURL, apiKey, model, embeddingsBaseURL, embeddingsApiKey, embeddingsModel }
 }
 
 export async function POST(request: NextRequest) {
@@ -76,13 +78,13 @@ export async function POST(request: NextRequest) {
     const byok = readByokFromRequest(request, body)
 
     if (body.type === 'llm') {
-      if (!byok.baseURL) {
+      if (byok.provider !== 'gemini' && !byok.baseURL) {
         return NextResponse.json(
           { success: false, message: 'Base URL is required' },
           { status: 400 },
         )
       }
-      return await testLlmConnection(byok.baseURL, byok.apiKey, byok.provider, byok.model)
+      return await testLlmConnection(byok.baseURL ?? '', byok.apiKey, byok.provider, byok.model)
     }
 
     // embeddings
@@ -92,7 +94,11 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       )
     }
-    return await testEmbeddingsConnection(byok.embeddingsBaseURL, byok.apiKey, byok.embeddingsModel)
+    return await testEmbeddingsConnection(
+      byok.embeddingsBaseURL,
+      byok.embeddingsApiKey,
+      byok.embeddingsModel,
+    )
   } catch (error) {
     console.error('Test connection error:', error)
     return NextResponse.json(
@@ -111,15 +117,15 @@ async function testLlmConnection(
   const normalizedBase = baseURL.replace(/\/+$/, '')
 
   if (provider === 'gemini') {
-    // Gemini uses query param for API key, different endpoint structure
-    const url = apiKey
-      ? `${normalizedBase}/models?key=${encodeURIComponent(apiKey)}`
-      : `${normalizedBase}/models`
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models'
 
     try {
-      const response = await fetch(url, {
+      const response = await safeServerFetch(url, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(apiKey ? { 'X-Goog-Api-Key': apiKey } : {}),
+        },
         signal: AbortSignal.timeout(10000),
       })
 
@@ -161,7 +167,7 @@ async function testLlmConnection(
   if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`
 
   try {
-    const response = await fetch(url, {
+    const response = await safeServerFetch(url, {
       method: 'GET',
       headers,
       signal: AbortSignal.timeout(10000),
@@ -189,7 +195,7 @@ async function testLlmConnection(
         stream: false,
       }
 
-      const chatResponse = await fetch(chatUrl, {
+      const chatResponse = await safeServerFetch(chatUrl, {
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify(chatBody),
@@ -251,7 +257,7 @@ async function testEmbeddingsConnection(
   if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`
 
   try {
-    const response = await fetch(url, {
+    const response = await safeServerFetch(url, {
       method: 'POST',
       headers,
       body: JSON.stringify({

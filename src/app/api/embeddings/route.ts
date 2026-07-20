@@ -4,6 +4,8 @@ import { z } from 'zod'
 import { chunkText } from '@/lib/rag/chunk'
 import { embedTexts } from '@/lib/ai/embeddings'
 import type { ByokConfig } from '@/lib/store/byok-store'
+import { resolveServerEmbeddingsConfig } from '@/lib/ai/server-config'
+import { createServiceClient } from '@/lib/supabase/service'
 
 /**
  * POST /api/embeddings
@@ -22,9 +24,6 @@ const requestBodySchema = z.object({
   queueId: z.string().uuid('queueId must be a valid UUID'),
 })
 
-/** Batch size for document_chunks inserts to avoid payload limits. */
-const INSERT_BATCH_SIZE = 50
-
 /** Extract BYOK config from request headers (set by byokToHeaders). */
 function readByokFromHeaders(request: NextRequest): ByokConfig {
   const h = (name: string) => request.headers.get(name) ?? ''
@@ -34,6 +33,7 @@ function readByokFromHeaders(request: NextRequest): ByokConfig {
     llmApiKey: h('x-byok-api-key'),
     llmModelName: h('x-byok-model'),
     embeddingsBaseURL: h('x-byok-embeddings-base-url'),
+    embeddingsApiKey: h('x-byok-embeddings-api-key'),
     embeddingsModel: h('x-byok-embeddings-model') || 'qwen3-embedding:0.6b',
   }
 }
@@ -72,21 +72,32 @@ export async function POST(request: NextRequest) {
     }
 
     // --- Read BYOK config from headers ------------------------------------
-    const byok = readByokFromHeaders(request)
-    if (!byok.embeddingsBaseURL) {
+    let byok: ByokConfig
+    try {
+      byok = await resolveServerEmbeddingsConfig(readByokFromHeaders(request))
+    } catch (configError) {
+      console.error('Embeddings configuration error:', configError)
       return NextResponse.json(
         { error: 'Embeddings base URL is required (configure in Settings)' },
         { status: 400 },
       )
     }
 
-    // --- Fetch ocr_queue row (ownership-filtered via RLS) -----------------
-    const { data: queueItem, error: queueError } = await supabase
-      .from('ocr_queue')
-      .select('id, document_id, status, extracted_text')
-      .eq('id', body.queueId)
-      .eq('user_id', user.id)
+    // --- Fetch ocr_queue row (owner-only, or any row for an administrator) --
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_admin')
+      .eq('id', user.id)
       .maybeSingle()
+
+    const dataClient = profile?.is_admin ? createServiceClient() : supabase
+    let queueQuery = dataClient
+      .from('ocr_queue')
+      .select('id, document_id, file_url, status, extracted_text')
+      .eq('id', body.queueId)
+    if (!profile?.is_admin) queueQuery = queueQuery.eq('user_id', user.id)
+
+    const { data: queueItem, error: queueError } = await queueQuery.maybeSingle()
 
     if (queueError || !queueItem) {
       return NextResponse.json(
@@ -110,6 +121,27 @@ export async function POST(request: NextRequest) {
         { error: 'OCR completed but extracted text is empty' },
         { status: 422 },
       )
+    }
+
+    // Queue ownership alone is insufficient: a forged queue row must never be
+    // able to replace chunks for a document owned by another user.
+    if (!profile?.is_admin) {
+      const { data: ownedDocument, error: ownershipError } = await supabase
+        .from('documents')
+        .select('id, storage_path')
+        .eq('id', queueItem.document_id)
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (
+        ownershipError ||
+        !ownedDocument ||
+        ownedDocument.storage_path !== queueItem.file_url
+      ) {
+        return NextResponse.json(
+          { error: 'Document not found' },
+          { status: 404 },
+        )
+      }
     }
 
     // --- Chunk the text ----------------------------------------------------
@@ -154,24 +186,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // --- Delete existing chunks for idempotency ---------------------------
-    // If this route is retried (transient failure, manual re-run), prior
-    // partial inserts would create duplicate chunks. Delete-before-insert
-    // makes the operation idempotent.
-    const { error: deleteError } = await supabase
-      .from('document_chunks')
-      .delete()
-      .eq('document_id', queueItem.document_id)
-
-    if (deleteError) {
-      console.error('document_chunks delete error:', deleteError)
-      return NextResponse.json(
-        { error: 'Failed to clear existing chunks before re-embedding' },
-        { status: 500 },
-      )
-    }
-
-    // --- Bulk-insert document_chunks in batches ---------------------------
+    // --- Atomically replace document_chunks -------------------------------
     // NaN/Infinity from a pathological upstream would corrupt the pgvector
     // string; coerce non-finite values to 0 as a defensive guard.
     const rows = chunks.map((content, i) => ({
@@ -182,24 +197,35 @@ export async function POST(request: NextRequest) {
         .join(',')}]`,
     }))
 
-    let insertedCount = 0
-    for (let i = 0; i < rows.length; i += INSERT_BATCH_SIZE) {
-      const batch = rows.slice(i, i + INSERT_BATCH_SIZE)
-      const { error: insertError } = await supabase
-        .from('document_chunks')
-        .insert(batch)
+    // The transaction RPC is service-role-only. Authentication and ownership
+    // were established by the queue query above.
+    const serviceClient = createServiceClient()
+    const { data: insertedCount, error: replaceError } = await serviceClient.rpc(
+      'replace_document_chunks',
+      {
+        p_document_id: queueItem.document_id,
+        p_chunks: rows,
+      },
+    )
+    if (replaceError || insertedCount !== rows.length) {
+      console.error('replace_document_chunks error:', replaceError)
+      return NextResponse.json(
+        { error: 'Failed to atomically replace document chunks' },
+        { status: 500 },
+      )
+    }
 
-      if (insertError) {
-        console.error('document_chunks insert error:', insertError)
-        return NextResponse.json(
-          {
-            error: `Failed to insert document chunks (inserted ${insertedCount} of ${rows.length})`,
-            chunkCount: insertedCount,
-          },
-          { status: 500 },
-        )
-      }
-      insertedCount += batch.length
+    const { error: statusError } = await serviceClient
+      .from('ocr_queue')
+      .update({ status: 'embedded', error: null })
+      .eq('id', queueItem.id)
+      .eq('status', 'completed')
+    if (statusError) {
+      console.error('ocr_queue embedded status update error:', statusError)
+      return NextResponse.json(
+        { error: 'Chunks were embedded but the queue status could not be updated' },
+        { status: 500 },
+      )
     }
 
     return NextResponse.json(

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { safeServerFetch } from '@/lib/security/outbound-url'
 
 /**
  * GET /api/admin/stats
@@ -27,8 +28,12 @@ export async function GET() {
         svc
           .from('app_settings')
           .select('key, value')
-          .in('key', ['worker_online', 'accelerated_ocr_online', 'ocr_worker_url']),
+          .in('key', ['accelerated_ocr_online', 'ocr_worker_url', 'ocr_worker_api_key']),
       ])
+
+    if (settingsRes.error) {
+      throw new Error('Failed to load worker settings')
+    }
 
     const totalUsers = usersRes.count ?? 0
     const totalDocuments = docsRes.count ?? 0
@@ -42,14 +47,31 @@ export async function GET() {
     const settings = settingsRes.data ?? []
     const getSetting = (key: string) => settings.find((s) => s.key === key)?.value
 
-    const workerOnline =
-      getSetting('worker_online') === 'true' || getSetting('worker_online') === true
     const acceleratedOcrOnline =
       getSetting('accelerated_ocr_online') === 'true' || getSetting('accelerated_ocr_online') === true
     const workerUrl =
       typeof getSetting('ocr_worker_url') === 'string'
         ? (getSetting('ocr_worker_url') as string)
         : ''
+    const workerApiKey =
+      typeof getSetting('ocr_worker_api_key') === 'string'
+        ? (getSetting('ocr_worker_api_key') as string)
+        : ''
+    let workerOnline = false
+    if (workerUrl && workerApiKey) {
+      try {
+        const response = await safeServerFetch(
+          `${workerUrl.replace(/\/+$/, '')}/health`,
+          {
+            headers: { Authorization: `Bearer ${workerApiKey}` },
+            signal: AbortSignal.timeout(3000),
+          },
+        )
+        workerOnline = response.ok
+      } catch {
+        workerOnline = false
+      }
+    }
 
     return NextResponse.json({
       totalUsers,

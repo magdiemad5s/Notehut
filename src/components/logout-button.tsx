@@ -37,17 +37,22 @@ export function LogoutButton() {
       type="button"
       onClick={handleSignOut}
       disabled={loading}
+      aria-label={loading ? 'Signing out' : 'Sign out'}
+      aria-busy={loading}
+      title={loading ? 'Signing out' : 'Sign out'}
       className={cn(
         buttonVariants({ variant: 'ghost' }),
-        'ml-auto cursor-pointer',
+        'ml-auto size-11 shrink-0 cursor-pointer px-0 text-muted-foreground hover:text-foreground sm:h-8 sm:w-auto sm:px-3',
       )}
     >
       {loading ? (
-        <Loader2 className="size-4 animate-spin" />
+        <Loader2 className="size-4 animate-spin" aria-hidden="true" />
       ) : (
-        <LogOut className="size-4" />
+        <LogOut className="size-4" aria-hidden="true" />
       )}
-      {loading ? 'Signing out...' : 'Sign out'}
+      <span className="sr-only sm:not-sr-only">
+        {loading ? 'Signing out...' : 'Sign out'}
+      </span>
     </button>
   )
 }

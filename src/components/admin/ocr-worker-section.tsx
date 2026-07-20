@@ -67,7 +67,6 @@ export function OcrWorkerSection() {
   const [isChangingWorkerKey, setIsChangingWorkerKey] = useState(false)
   const [showWorkerKey, setShowWorkerKey] = useState(false)
   const [acceleratedOcrOnline, setAcceleratedOcrOnline] = useState(false)
-  const [workerOnline, setWorkerOnline] = useState(false)
 
   /* ── UI state ── */
   const [loading, setLoading] = useState(true)
@@ -106,9 +105,6 @@ export function OcrWorkerSection() {
             case "accelerated_ocr_online":
               setAcceleratedOcrOnline(s.value === true || s.value === "true")
               break
-            case "worker_online":
-              setWorkerOnline(s.value === true || s.value === "true")
-              break
           }
         }
       } catch (err) {
@@ -132,7 +128,6 @@ export function OcrWorkerSection() {
         { key: "ocr_worker_url", value: workerUrl },
         { key: "ocr_worker_api_key", value: workerApiKey },
         { key: "accelerated_ocr_online", value: acceleratedOcrOnline },
-        { key: "worker_online", value: workerOnline },
       ]
 
       for (const setting of settings) {
@@ -170,6 +165,10 @@ export function OcrWorkerSection() {
 
     setTesting(true)
     try {
+      if (isMaskedKey(workerApiKey)) {
+        toast.error('Enter the worker API key again to test this connection')
+        return
+      }
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 5000)
 
@@ -246,38 +245,18 @@ export function OcrWorkerSection() {
           {/* Worker API Key */}
           <div className="space-y-2">
             <Label htmlFor="ocr-worker-api-key">
-              Worker API Key{" "}
-              <span className="text-muted-foreground font-normal">
-                (optional)
-              </span>
+              Worker API Key
             </Label>
             {hasExistingWorkerKey && !isChangingWorkerKey ? (
               <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <Input
-                    id="ocr-worker-api-key"
-                    type="password"
-                    value={workerApiKey}
-                    readOnly
-                    className="pr-10 opacity-70"
-                    tabIndex={-1}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowWorkerKey(!showWorkerKey)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    aria-label={
-                      showWorkerKey ? "Hide API key" : "Show API key"
-                    }
-                    tabIndex={-1}
-                  >
-                    {showWorkerKey ? (
-                      <EyeOff className="size-4" />
-                    ) : (
-                      <Eye className="size-4" />
-                    )}
-                  </button>
-                </div>
+                <Input
+                  id="ocr-worker-api-key"
+                  type="password"
+                  value={workerApiKey}
+                  readOnly
+                  className="flex-1 opacity-70"
+                  tabIndex={-1}
+                />
                 <Button
                   type="button"
                   variant="outline"
@@ -298,7 +277,7 @@ export function OcrWorkerSection() {
                   placeholder={
                     hasExistingWorkerKey
                       ? "Type new API key to replace existing..."
-                      : "Optional worker auth key"
+                      : "Required worker bearer key"
                   }
                   value={workerApiKey}
                   onChange={(e) => setWorkerApiKey(e.target.value)}
@@ -320,21 +299,19 @@ export function OcrWorkerSection() {
             )}
           </div>
 
-          {/* Toggle: Accelerated OCR Online */}
+          {/* Toggle: Unlimited-OCR preference */}
           <SwitchToggle
             id="accelerated-ocr-online"
-            label="Accelerated OCR Online"
+            label="Use Unlimited-OCR when compatible"
             checked={acceleratedOcrOnline}
             onChange={setAcceleratedOcrOnline}
           />
+          <p className="text-xs text-muted-foreground">
+            Native PDF text extraction is always available. Scanned PDFs use
+            Unlimited-OCR only on a BF16-capable GPU when this is enabled;
+            otherwise the worker uses its configured Tesseract fallback.
+          </p>
 
-          {/* Toggle: Worker Online */}
-          <SwitchToggle
-            id="worker-online"
-            label="Worker Online"
-            checked={workerOnline}
-            onChange={setWorkerOnline}
-          />
         </CardContent>
         <CardFooter className="flex-wrap gap-2">
           <Button onClick={saveAll} disabled={saving}>

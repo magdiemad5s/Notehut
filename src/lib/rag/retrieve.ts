@@ -24,6 +24,11 @@ export async function retrieveChunks(params: {
   if (!query.trim()) throw new Error('Query cannot be empty')
 
   const queryEmbedding = await embedSingle(query, byok)
+  if (queryEmbedding.length !== 1024) {
+    throw new Error(
+      `Embedding dimension mismatch: got ${queryEmbedding.length}, expected 1024`,
+    )
+  }
 
   const supabase = await createClient()
 

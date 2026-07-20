@@ -156,7 +156,7 @@ export function StatsSection() {
       />
       <StatCard
         icon={<Zap className="size-5" />}
-        label="Accelerated OCR"
+        label="Unlimited-OCR"
         value={
           <StatusIndicator
             online={data.acceleratedOcrOnline}

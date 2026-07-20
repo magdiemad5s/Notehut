@@ -1,17 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
-import { streamText } from 'ai'
+import { convertToModelMessages, streamText, type UIMessage } from 'ai'
 import { resolveChatModel } from '@/lib/ai/providers'
 import { retrieveChunks } from '@/lib/rag/retrieve'
 import { tutorSystemPrompt } from '@/lib/ai/prompts'
 import type { ByokConfig } from '@/lib/store/byok-store'
+import { resolveServerAiConfig } from '@/lib/ai/server-config'
 
 // ─── Body schema ───────────────────────────────────────────────────────
 
 const requestBodySchema = z.object({
   topicName: z.string().min(1),
   topicId: z.string().uuid(),
+  messages: z.array(z.object({
+    id: z.string(),
+    role: z.enum(['user', 'assistant', 'system']),
+    parts: z.array(z.object({
+      type: z.string(),
+      text: z.string().optional(),
+    })),
+  })).min(1),
 })
 
 // ─── BYOK header extraction (provider-aware) ───────────────────────────
@@ -30,6 +39,7 @@ function readByokFromHeaders(request: NextRequest): ByokConfig {
     llmApiKey: h('x-byok-api-key'),
     llmModelName: h('x-byok-model'),
     embeddingsBaseURL: h('x-byok-embeddings-base-url'),
+    embeddingsApiKey: h('x-byok-embeddings-api-key'),
     embeddingsModel: h('x-byok-embeddings-model') || 'qwen3-embedding:0.6b',
   }
 }
@@ -80,36 +90,16 @@ export async function POST(request: NextRequest) {
     }
 
     // --- Read BYOK config from headers -----------------------------------
-    const byok = readByokFromHeaders(request)
-
-    // Provider-aware validation:
-    // - Gemini needs only apiKey + provider + modelName
-    // - Other providers (custom/deepseek) need baseURL + apiKey + modelName
-    if (byok.llmProvider === 'gemini') {
-      if (!byok.llmApiKey) {
-        return NextResponse.json(
-          { error: 'API key is required for Gemini (configure in Settings)' },
-          { status: 400 },
-        )
-      }
-    } else {
-      if (!byok.llmBaseURL) {
-        return NextResponse.json(
-          { error: 'Base URL is required for this provider (configure in Settings)' },
-          { status: 400 },
-        )
-      }
-      if (!byok.llmApiKey) {
-        return NextResponse.json(
-          { error: 'API key is required for this provider (configure in Settings)' },
-          { status: 400 },
-        )
-      }
-    }
-
-    if (!byok.llmModelName) {
+    let byok: ByokConfig
+    try {
+      byok = await resolveServerAiConfig(
+        readByokFromHeaders(request),
+        'tutor_model',
+      )
+    } catch (configError) {
+      console.error('Tutor configuration error:', configError)
       return NextResponse.json(
-        { error: 'Model name is required (configure in Settings)' },
+        { error: 'Complete LLM and embeddings configuration is required' },
         { status: 400 },
       )
     }
@@ -135,10 +125,11 @@ export async function POST(request: NextRequest) {
     const context = chunks.map((c) => c.content).join('\n\n')
 
     // --- Stream the tutor response ---------------------------------------
+    const messages = await convertToModelMessages(body.messages as UIMessage[])
     const result = streamText({
       model: resolveChatModel(byok),
       system: tutorSystemPrompt(body.topicName, context),
-      prompt: `Create a focused study guide for the topic: ${body.topicName}`,
+      messages,
       temperature: 0.4,
       maxOutputTokens: 2048,
       onError: ({ error }) => console.error('Tutor streamText error:', error),

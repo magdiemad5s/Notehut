@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
 
     if (topicError || !topic) {
       return NextResponse.json(
-        { error: `Topic not found or not owned by user: ${topicError?.message || 'no matching topic'}` },
+        { error: 'Topic not found or not owned by user' },
         { status: 404 },
       )
     }
@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
     if (uploadError) {
       console.error('Storage upload error:', uploadError)
       return NextResponse.json(
-        { error: `Storage upload failed: ${uploadError.message}. Ensure the 'pdfs' bucket exists in Supabase Storage.` },
+        { error: "Storage upload failed. Ensure the 'pdfs' bucket exists in Supabase Storage." },
         { status: 500 },
       )
     }
@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
         .remove([filePath])
         .catch((e) => console.error('Cleanup: storage remove failed:', e))
       return NextResponse.json(
-        { error: `Failed to create document record: ${docError?.message || 'unknown error'}` },
+        { error: 'Failed to create document record' },
         { status: 500 },
       )
     }
@@ -194,7 +194,7 @@ export async function POST(request: NextRequest) {
         .remove([filePath])
         .catch((e) => console.error('Cleanup: storage remove failed:', e))
       return NextResponse.json(
-        { error: `Failed to create OCR queue entry: ${queueError?.message || 'unknown error'}` },
+        { error: 'Failed to create OCR queue entry' },
         { status: 500 },
       )
     }

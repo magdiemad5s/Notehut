@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { byokToHeaders, useByokStore } from '@/lib/store/byok-store'
+import { byokToHeaders, useByokConfig } from '@/lib/store/byok-store'
 import type { Exam } from '@/lib/ai/schemas'
 
 interface ExamConfigDialogProps {
@@ -36,7 +36,7 @@ export function ExamConfigDialog({ topicId, onExamGenerated }: ExamConfigDialogP
   const [count, setCount] = useState(5)
   const [difficulty, setDifficulty] = useState('medium')
 
-  const byok = useByokStore()
+  const byok = useByokConfig()
 
   const toggleQuestionType = (type: string) => {
     setQuestionTypes((prev) =>

@@ -8,6 +8,7 @@ import type { Exam, Question } from '@/lib/ai/schemas'
 interface ExamRunnerProps {
   exam: Exam
   onSubmit: (answers: Record<number, string>) => void
+  submitting?: boolean
 }
 
 /** Parse a stored checkbox answer string back into an array of indices. */
@@ -46,10 +47,11 @@ function QuestionInput({
   if (question.type === 'mcq') {
     return (
       <fieldset className="space-y-2">
+        <legend className="sr-only">Question {index + 1} answer choices</legend>
         {question.options.map((option, optIndex) => (
           <label
             key={optIndex}
-            className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary/5"
+            className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm leading-5 transition-colors hover:bg-muted/60 focus-within:ring-2 focus-within:ring-ring/50 has-[:checked]:border-primary has-[:checked]:bg-primary/5"
           >
             <input
               type="radio"
@@ -58,7 +60,7 @@ function QuestionInput({
               onChange={() =>
                 setAnswers((prev) => ({ ...prev, [index]: String(optIndex) }))
               }
-              className="accent-primary"
+              className="mt-0.5 size-4 shrink-0 accent-primary"
             />
             {option}
           </label>
@@ -70,18 +72,19 @@ function QuestionInput({
   if (question.type === 'checkbox') {
     return (
       <fieldset className="space-y-2">
+        <legend className="sr-only">Question {index + 1} answer choices</legend>
         {question.options.map((option, optIndex) => {
           const selected = parseCheckboxAnswer(answers[index])
           return (
             <label
               key={optIndex}
-              className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary/5"
+                className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm leading-5 transition-colors hover:bg-muted/60 focus-within:ring-2 focus-within:ring-ring/50 has-[:checked]:border-primary has-[:checked]:bg-primary/5"
             >
               <input
                 type="checkbox"
                 checked={selected.includes(optIndex)}
                 onChange={() => toggleCheckbox(index, optIndex, setAnswers)}
-                className="accent-primary"
+                  className="mt-0.5 size-4 shrink-0 accent-primary"
               />
               {option}
             </label>
@@ -99,7 +102,7 @@ function QuestionInput({
         setAnswers((prev) => ({ ...prev, [index]: e.target.value }))
       }
       placeholder="Type your answer here…"
-      className="w-full rounded-md border border-input px-3 py-2 text-sm min-h-[100px] focus:outline-none focus:ring-2 focus:ring-ring"
+      className="min-h-32 w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm leading-6 outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
     />
   )
 }
@@ -113,7 +116,7 @@ function isAnswered(question: Question, answer: string | undefined): boolean {
   return answer !== ''
 }
 
-export default function ExamRunner({ exam, onSubmit }: ExamRunnerProps) {
+export default function ExamRunner({ exam, onSubmit, submitting = false }: ExamRunnerProps) {
   const [answers, setAnswers] = useState<Record<number, string>>({})
   const totalQuestions = exam.questions.length
   const answeredCount = exam.questions.filter((q, i) => isAnswered(q, answers[i])).length
@@ -126,7 +129,7 @@ export default function ExamRunner({ exam, onSubmit }: ExamRunnerProps) {
   return (
     <div className="space-y-6">
       {/* Header summary */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between rounded-xl border bg-card px-4 py-3 shadow-xs">
         <h2 className="text-lg font-semibold">Exam</h2>
         <p className="text-sm text-muted-foreground">
           Answered {answeredCount} of {totalQuestions}
@@ -166,12 +169,12 @@ export default function ExamRunner({ exam, onSubmit }: ExamRunnerProps) {
       ))}
 
       {/* Submit */}
-      <div className="flex items-center justify-end gap-4 pt-2">
+      <div className="sticky bottom-3 z-10 flex flex-col gap-3 rounded-xl border bg-background/95 p-3 shadow-lg backdrop-blur sm:flex-row sm:items-center sm:justify-between">
         <span className="text-sm text-muted-foreground">
-          Answered {answeredCount} of {totalQuestions}
+          <span className="font-medium text-foreground">{answeredCount}</span> of {totalQuestions} answered
         </span>
-        <Button onClick={handleSubmit} disabled={!allAnswered}>
-          Submit Exam
+        <Button onClick={handleSubmit} disabled={!allAnswered || submitting}>
+          {submitting ? 'Grading…' : 'Submit Exam'}
         </Button>
       </div>
     </div>

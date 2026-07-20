@@ -33,6 +33,7 @@ type FallbackLlmValue = {
 
 type FallbackEmbeddingsValue = {
   embeddingsBaseURL: string
+  embeddingsApiKey: string
   embeddingsModel: string
 }
 
@@ -58,6 +59,10 @@ export function AiConfigSection() {
 
   /* ── Embeddings state ── */
   const [embeddingsBaseURL, setEmbeddingsBaseURL] = useState("")
+  const [embeddingsApiKey, setEmbeddingsApiKey] = useState("")
+  const [showEmbeddingsKey, setShowEmbeddingsKey] = useState(false)
+  const [hasExistingEmbeddingsKey, setHasExistingEmbeddingsKey] = useState(false)
+  const [isChangingEmbeddingsKey, setIsChangingEmbeddingsKey] = useState(false)
   const [embeddingsModel, setEmbeddingsModel] = useState("qwen3-embedding:0.6b")
 
   /* ── Per-feature model overrides ── */
@@ -110,6 +115,12 @@ export function AiConfigSection() {
           if (embSecret?.value) {
             const v = embSecret.value as FallbackEmbeddingsValue
             setEmbeddingsBaseURL(v.embeddingsBaseURL ?? "")
+            if (v.embeddingsApiKey && isMaskedKey(v.embeddingsApiKey)) {
+              setEmbeddingsApiKey(v.embeddingsApiKey)
+              setHasExistingEmbeddingsKey(true)
+            } else {
+              setEmbeddingsApiKey(v.embeddingsApiKey ?? "")
+            }
             setEmbeddingsModel(v.embeddingsModel ?? "qwen3-embedding:0.6b")
           }
         }
@@ -168,9 +179,9 @@ export function AiConfigSection() {
       const value: Record<string, unknown> = {
         llmProvider,
         llmBaseURL,
-        llmApiKey,
         llmModelName,
       }
+      if (!isMaskedKey(llmApiKey)) value.llmApiKey = llmApiKey
 
       const res = await fetch("/api/admin/fallback-keys", {
         method: "PUT",
@@ -200,10 +211,11 @@ export function AiConfigSection() {
   const saveEmbeddingsConfig = async () => {
     setSavingEmbeddings(true)
     try {
-      const value: FallbackEmbeddingsValue = {
+      const value: Record<string, string> = {
         embeddingsBaseURL,
         embeddingsModel,
       }
+      if (!isMaskedKey(embeddingsApiKey)) value.embeddingsApiKey = embeddingsApiKey
 
       const res = await fetch("/api/admin/fallback-keys", {
         method: "PUT",
@@ -218,6 +230,7 @@ export function AiConfigSection() {
       }
 
       toast.success("Embeddings configuration saved")
+      setIsChangingEmbeddingsKey(false)
     } catch (err) {
       toast.error(
         "Error saving embeddings config: " +
@@ -273,6 +286,10 @@ export function AiConfigSection() {
 
     setTestingLlm(true)
     try {
+      if (hasExistingLlmKey && isMaskedKey(llmApiKey)) {
+        toast.error('Enter the API key again to test this connection')
+        return
+      }
       // Build a byok config object from our local state for header generation
       const config = {
         llmProvider,
@@ -280,7 +297,13 @@ export function AiConfigSection() {
         llmApiKey: isMaskedKey(llmApiKey) || !llmApiKey ? "" : llmApiKey,
         llmModelName,
         embeddingsBaseURL,
+        embeddingsApiKey,
         embeddingsModel,
+      }
+
+      if (!config.llmApiKey) {
+        toast.error('Enter the API key again to test this connection')
+        return
       }
 
       const res = await fetch("/api/test-connection", {
@@ -323,7 +346,12 @@ export function AiConfigSection() {
         llmApiKey: "",
         llmModelName,
         embeddingsBaseURL,
+        embeddingsApiKey: isMaskedKey(embeddingsApiKey) ? "" : embeddingsApiKey,
         embeddingsModel,
+      }
+      if (hasExistingEmbeddingsKey && isMaskedKey(embeddingsApiKey)) {
+        toast.error('Enter the embeddings API key again to test this connection')
+        return
       }
 
       const res = await fetch("/api/test-connection", {
@@ -407,29 +435,14 @@ export function AiConfigSection() {
             <Label htmlFor="ai-llm-api-key">API Key</Label>
             {hasExistingLlmKey && !isChangingLlmKey ? (
               <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <Input
-                    id="ai-llm-api-key"
-                    type="password"
-                    value={llmApiKey}
-                    readOnly
-                    className="pr-10 opacity-70"
-                    tabIndex={-1}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowLlmKey(!showLlmKey)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    aria-label={showLlmKey ? "Hide API key" : "Show API key"}
-                    tabIndex={-1}
-                  >
-                    {showLlmKey ? (
-                      <EyeOff className="size-4" />
-                    ) : (
-                      <Eye className="size-4" />
-                    )}
-                  </button>
-                </div>
+                <Input
+                  id="ai-llm-api-key"
+                  type="password"
+                  value={llmApiKey}
+                  readOnly
+                  className="flex-1 opacity-70"
+                  tabIndex={-1}
+                />
                 <Button
                   type="button"
                   variant="outline"
@@ -527,6 +540,39 @@ export function AiConfigSection() {
               value={embeddingsBaseURL}
               onChange={(e) => setEmbeddingsBaseURL(e.target.value)}
             />
+          </div>
+
+          {/* Embeddings Model */}
+          <div className="space-y-2">
+            <Label htmlFor="ai-emb-api-key">Embeddings API Key</Label>
+            {hasExistingEmbeddingsKey && !isChangingEmbeddingsKey ? (
+              <div className="flex items-center gap-2">
+                <Input id="ai-emb-api-key" type="password" value={embeddingsApiKey} readOnly className="opacity-70" />
+                <Button type="button" variant="outline" size="sm" onClick={() => { setIsChangingEmbeddingsKey(true); setEmbeddingsApiKey("") }}>
+                  Change Key
+                </Button>
+              </div>
+            ) : (
+              <div className="relative">
+                <Input
+                  id="ai-emb-api-key"
+                  type={showEmbeddingsKey ? "text" : "password"}
+                  placeholder="Worker gateway bearer key"
+                  value={embeddingsApiKey}
+                  onChange={(e) => setEmbeddingsApiKey(e.target.value)}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowEmbeddingsKey(!showEmbeddingsKey)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label={showEmbeddingsKey ? "Hide embeddings API key" : "Show embeddings API key"}
+                >
+                  {showEmbeddingsKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">Required for the authenticated notebook gateway; optional only for a trusted local endpoint.</p>
           </div>
 
           {/* Embeddings Model */}

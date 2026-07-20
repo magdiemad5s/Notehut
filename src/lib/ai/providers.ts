@@ -2,6 +2,7 @@ import { createOpenAI } from '@ai-sdk/openai'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { type LanguageModel, type EmbeddingModel } from 'ai'
 import type { ByokConfig } from '@/lib/store/byok-store'
+import { safeServerFetch } from '@/lib/security/outbound-url'
 
 /**
  * Same shape as ByokConfig for service-role routes that read fallback credentials
@@ -16,11 +17,14 @@ export interface FallbackConfig {
   llmApiKey: string
   llmModelName: string
   embeddingsBaseURL: string
+  embeddingsApiKey: string
   embeddingsModel: string
 }
 
 /** Callable provider shape — accepts a model id and returns an AI SDK LanguageModel. */
-type ChatProvider = (modelId: string) => LanguageModel
+type ChatProvider = ((modelId: string) => LanguageModel) & {
+  chat?: (modelId: string) => LanguageModel
+}
 
 /**
  * Resolve a chat provider from BYOK config.
@@ -33,9 +37,16 @@ type ChatProvider = (modelId: string) => LanguageModel
  */
 export function resolveChatProvider(cfg: ByokConfig | FallbackConfig): ChatProvider {
   if (cfg.llmProvider === 'gemini') {
-    return createGoogleGenerativeAI({ apiKey: cfg.llmApiKey }) as unknown as ChatProvider
+    return createGoogleGenerativeAI({
+      apiKey: cfg.llmApiKey,
+      fetch: safeServerFetch,
+    }) as unknown as ChatProvider
   }
-  return createOpenAI({ baseURL: cfg.llmBaseURL, apiKey: cfg.llmApiKey }) as unknown as ChatProvider
+  return createOpenAI({
+    baseURL: cfg.llmBaseURL,
+    apiKey: cfg.llmApiKey || 'ollama',
+    fetch: safeServerFetch,
+  }) as unknown as ChatProvider
 }
 
 /**
@@ -48,6 +59,12 @@ export function resolveChatProvider(cfg: ByokConfig | FallbackConfig): ChatProvi
  */
 export function resolveChatModel(cfg: ByokConfig | FallbackConfig): LanguageModel {
   const provider = resolveChatProvider(cfg)
+  // OpenAI-compatible local gateways such as Ollama are most interoperable
+  // through /v1/chat/completions. The default OpenAI provider callable targets
+  // /v1/responses, which older Ollama installations may not expose.
+  if (cfg.llmProvider === 'custom' && provider.chat) {
+    return provider.chat(cfg.llmModelName)
+  }
   return provider(cfg.llmModelName)
 }
 
@@ -61,7 +78,8 @@ export function resolveChatModel(cfg: ByokConfig | FallbackConfig): LanguageMode
 export function resolveEmbeddingsModel(cfg: ByokConfig | FallbackConfig): EmbeddingModel {
   const provider = createOpenAI({
     baseURL: cfg.embeddingsBaseURL,
-    apiKey: cfg.llmApiKey || 'ollama',
+    apiKey: cfg.embeddingsApiKey || 'ollama',
+    fetch: safeServerFetch,
   })
   return provider.embedding(cfg.embeddingsModel || 'qwen3-embedding:0.6b')
 }

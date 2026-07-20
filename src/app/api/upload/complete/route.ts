@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
     if (topicError || !topic) {
       return NextResponse.json(
         {
-          error: `Topic not found or not owned by user: ${topicError?.message || 'no matching topic'}`,
+          error: 'Topic not found or not owned by user',
         },
         { status: 404 },
       )
@@ -97,13 +97,13 @@ export async function POST(request: NextRequest) {
     // --- Verify the file actually exists in storage -----------------------
     // Defensive: if the client lied about uploading, we'd create a documents
     // row pointing at nothing. Head the object to confirm it's there.
-    const { error: headError } = await supabase.storage
+    const { data: fileExists, error: headError } = await supabase.storage
       .from('pdfs')
-      .createSignedUrl(body.storagePath, 60)
-    if (headError) {
+      .exists(body.storagePath)
+    if (headError || !fileExists) {
       return NextResponse.json(
         {
-          error: `File not found in storage. Did the upload complete? (${headError.message})`,
+          error: 'File not found in storage. Did the upload complete?',
         },
         { status: 404 },
       )
@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
     if (docError || !document) {
       console.error('documents insert error:', docError)
       return NextResponse.json(
-        { error: `Failed to create document record: ${docError?.message || 'unknown error'}` },
+        { error: 'Failed to create document record' },
         { status: 500 },
       )
     }
@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
         console.error('Cleanup: document delete failed:', e)
       }
       return NextResponse.json(
-        { error: `Failed to create OCR queue entry: ${queueError?.message || 'unknown error'}` },
+        { error: 'Failed to create OCR queue entry' },
         { status: 500 },
       )
     }

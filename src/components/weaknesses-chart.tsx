@@ -37,19 +37,26 @@ export default function WeaknessesChart({ weaknesses }: WeaknessesChartProps) {
         <CardTitle>Topic Weaknesses</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-2">
+        <div className="space-y-4">
           {weaknesses.map((w) => (
-            <div key={w.topic_name} className="flex items-center gap-3">
-              <span className="w-32 truncate text-sm">{w.topic_name}</span>
-              <div className="flex-1 overflow-hidden rounded bg-muted h-6">
+            <div key={w.topic_name} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 sm:grid-cols-[10rem_minmax(0,1fr)_auto] sm:items-center">
+              <span className="truncate text-sm font-medium">{w.topic_name}</span>
+              <div
+                className="col-span-2 h-2 overflow-hidden rounded-full bg-muted sm:col-span-1"
+                role="progressbar"
+                aria-label={`${w.topic_name}: ${w.error_count} errors`}
+                aria-valuemin={0}
+                aria-valuemax={max}
+                aria-valuenow={w.error_count}
+              >
                 <div
-                  className="h-full rounded bg-red-500"
+                  className="h-full rounded-full bg-amber-500 dark:bg-amber-400"
                   style={{
                     width: `${max > 0 ? (w.error_count / max) * 100 : 0}%`,
                   }}
                 />
               </div>
-              <span className="w-8 text-sm text-muted-foreground">
+              <span className="row-start-1 text-sm tabular-nums text-muted-foreground sm:row-auto">
                 {w.error_count}
               </span>
             </div>

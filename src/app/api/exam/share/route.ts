@@ -18,7 +18,7 @@ import { QuestionSchema } from '@/lib/ai/schemas'
 const requestBodySchema = z.object({
   topicId: z.string().uuid(),
   title: z.string().min(1).max(200),
-  questions: z.array(QuestionSchema).min(1),
+  questions: z.array(QuestionSchema).min(1).max(50),
 })
 
 export async function POST(request: NextRequest) {
@@ -76,7 +76,9 @@ export async function POST(request: NextRequest) {
         topic_id: body.topicId,
         creator_id: user.id,
         title: body.title,
-        questions_json: JSON.stringify(body.questions),
+        // Store the canonical JSON object directly. Supabase serializes jsonb;
+        // pre-stringifying here creates a JSON string scalar instead.
+        questions_json: { questions: body.questions },
         is_public: true,
       })
       .select('id')

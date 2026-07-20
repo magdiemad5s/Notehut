@@ -1,591 +1,419 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
-import { 
-  BookOpen, 
-  Brain, 
-  Key, 
-  Sparkles, 
-  UploadCloud, 
-  Share2, 
-  ArrowRight, 
-  CheckCircle, 
-  Database, 
-  Cpu, 
-  Layers, 
-  GraduationCap, 
-  FileText, 
-  BarChart3, 
+import {
+  ArrowRight,
+  BarChart3,
+  BookOpen,
+  CheckCircle,
+  FileText,
+  GraduationCap,
+  Key,
   MessageSquare,
-  ShieldCheck
+  ShieldCheck,
+  Sparkles,
+  UploadCloud,
 } from "lucide-react";
+
+import { BrandMark } from "@/components/brand-mark";
+import { buttonVariants } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase/server";
+import { cn } from "@/lib/utils";
+
+const features = [
+  {
+    icon: BookOpen,
+    title: "One workspace per subject",
+    description:
+      "Keep source material, grounded questions, and practice exams together instead of scattering study work across tabs.",
+  },
+  {
+    icon: GraduationCap,
+    title: "Practice that adapts",
+    description:
+      "Generate mixed-format exams and let missed concepts shape what NoteHut brings back into your next review.",
+  },
+  {
+    icon: MessageSquare,
+    title: "Answers tied to your notes",
+    description:
+      "Ask questions in context and get explanations grounded in the documents inside the topic you are studying.",
+  },
+];
+
+const steps = [
+  {
+    number: "01",
+    title: "Bring your material",
+    description: "Create a topic and upload the PDFs you actually need to learn.",
+  },
+  {
+    number: "02",
+    title: "Turn reading into recall",
+    description: "Ask focused questions or generate an exam from the same source material.",
+  },
+  {
+    number: "03",
+    title: "Review with intention",
+    description: "Use your error history to spend the next session on the concepts that need it.",
+  },
+];
 
 export default async function Home() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const primaryHref = user ? "/dashboard" : "/register";
+  const primaryLabel = user ? "Open your workspace" : "Start studying free";
 
   return (
-    <div className="min-h-screen bg-[#f8f9ff] text-[#0b1c30] font-sans selection:bg-indigo-100 selection:text-indigo-900">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-[#f8f9ff]/80 backdrop-blur-md border-b border-slate-200/80">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="bg-indigo-600 text-white p-2 rounded-lg shadow-sm shadow-indigo-500/20">
-              <Brain className="w-5 h-5" />
-            </div>
-            <span className="font-bold text-xl tracking-tight text-slate-900">
-              NoteHut
-            </span>
-          </div>
+    <div className="min-h-dvh overflow-x-hidden bg-background text-foreground">
+      <header className="sticky top-0 z-50 border-b border-border/75 bg-background/88 backdrop-blur-xl supports-[backdrop-filter]:bg-background/78">
+        <div className="mx-auto flex h-16 w-full max-w-7xl items-center gap-6 px-4 sm:px-6 lg:px-8">
+          <Link
+            href="/"
+            className="rounded-lg focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
+          >
+            <BrandMark />
+          </Link>
 
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
-            <a href="#features" className="hover:text-indigo-600 transition-colors">Features</a>
-            <a href="#how-it-works" className="hover:text-indigo-600 transition-colors">How It Works</a>
-            <a href="#byok" className="hover:text-indigo-600 transition-colors">BYOK Architecture</a>
-            <a href="#tech-stack" className="hover:text-indigo-600 transition-colors">Tech Stack</a>
+          <nav
+            aria-label="Marketing navigation"
+            className="ml-6 hidden items-center gap-7 text-sm font-medium text-muted-foreground md:flex"
+          >
+            <a className="transition-colors hover:text-foreground" href="#features">
+              Why NoteHut
+            </a>
+            <a className="transition-colors hover:text-foreground" href="#how-it-works">
+              How it works
+            </a>
+            <a className="transition-colors hover:text-foreground" href="#privacy">
+              Privacy
+            </a>
           </nav>
 
-          <div className="flex items-center gap-4">
-            {user ? (
-              <Link 
-                href="/dashboard" 
-                className="bg-slate-900 text-white hover:bg-slate-800 text-sm font-medium px-4 py-2 rounded-lg transition-all shadow-sm"
+          <div className="ml-auto flex items-center gap-2">
+            {!user && (
+              <Link
+                href="/login"
+                className={cn(
+                  buttonVariants({ variant: "ghost", size: "sm" }),
+                  "h-9 px-3",
+                )}
               >
-                Dashboard
+                Sign in
               </Link>
-            ) : (
-              <>
-                <Link 
-                  href="/login" 
-                  className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors px-3 py-2 rounded-md"
-                >
-                  Sign In
-                </Link>
-                <Link 
-                  href="/register" 
-                  className="bg-slate-900 text-white hover:bg-slate-800 text-sm font-medium px-4 py-2 rounded-lg transition-all shadow-sm"
-                >
-                  Get Started
-                </Link>
-              </>
             )}
+            <Link
+              href={primaryHref}
+              className={cn(buttonVariants({ size: "sm" }), "h-9 px-3.5")}
+            >
+              {user ? "Dashboard" : "Get started"}
+              <ArrowRight className="size-3.5" />
+            </Link>
           </div>
         </div>
       </header>
 
-      {/* Hero Section */}
-      <section className="relative pt-20 pb-24 overflow-hidden">
-        {/* Background decorative elements */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-full pointer-events-none">
-          <div className="absolute top-12 left-10 w-72 h-72 bg-indigo-200/30 rounded-full blur-3xl" />
-          <div className="absolute top-40 right-10 w-80 h-80 bg-blue-200/20 rounded-full blur-3xl" />
-        </div>
+      <main>
+        <section className="relative border-b border-border/70">
+          <div
+            className="pointer-events-none absolute inset-x-0 top-0 -z-0 h-72 bg-[linear-gradient(to_bottom,oklch(0.955_0.025_273),transparent)] opacity-60"
+            aria-hidden="true"
+          />
+          <div className="relative z-10 mx-auto grid w-full max-w-7xl items-center gap-12 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[0.88fr_1.12fr] lg:gap-16 lg:px-8 lg:py-24">
+            <div className="max-w-xl">
+              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/7 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-primary">
+                <Sparkles className="size-3.5" />
+                Adaptive study, grounded in your notes
+              </div>
+              <h1 className="max-w-[12ch] text-4xl font-bold leading-[1.04] tracking-[-0.045em] sm:text-5xl lg:text-[3.65rem]">
+                Study what matters. Remember{" "}
+                <span className="box-decoration-clone bg-amber-200/75 px-1 dark:bg-amber-400/25">
+                  what sticks.
+                </span>
+              </h1>
+              <p className="mt-6 max-w-lg text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8">
+                NoteHut turns your PDFs into a focused study workspace—grounded chat,
+                custom exams, and a review plan that follows your weak spots.
+              </p>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="text-center max-w-3xl mx-auto">
-            <div className="inline-flex items-center gap-1.5 bg-indigo-50 border border-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs font-semibold mb-6 tracking-wide uppercase">
-              <Sparkles className="w-3.5 h-3.5" />
-              Next-Gen AI Study Platform
-            </div>
-            
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-slate-900 leading-[1.1] mb-6">
-              Adaptive AI Document Analysis & Exam Builder
-            </h1>
-            
-            <p className="text-lg sm:text-xl text-slate-600 mb-10 leading-relaxed">
-              Upload your study materials, generate custom exams, and let our adaptive AI target your weaknesses. Bring your own keys (BYOK) for complete control over your data and costs.
-            </p>
-
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
-              {user ? (
-                <Link 
-                  href="/dashboard" 
-                  className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-8 py-3.5 rounded-xl transition-all shadow-md shadow-indigo-500/10 flex items-center justify-center gap-2 group"
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Link
+                  href={primaryHref}
+                  className={cn(buttonVariants({ size: "lg" }), "group")}
                 >
-                  Go to Dashboard
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  {primaryLabel}
+                  <ArrowRight className="transition-transform group-hover:translate-x-0.5" />
                 </Link>
-              ) : (
-                <>
-                  <Link 
-                    href="/register" 
-                    className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-8 py-3.5 rounded-xl transition-all shadow-md shadow-indigo-500/10 flex items-center justify-center gap-2 group"
-                  >
-                    Start Studying Free
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </Link>
-                  <Link 
-                    href="/login" 
-                    className="w-full sm:w-auto bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-medium px-8 py-3.5 rounded-xl transition-all flex items-center justify-center gap-2"
-                  >
-                    Go to Dashboard
-                  </Link>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Interactive Mockup */}
-          <div className="max-w-5xl mx-auto bg-white rounded-2xl border border-slate-200 shadow-xl shadow-slate-200/50 overflow-hidden">
-            <div className="bg-slate-50 border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-rose-400" />
-                <div className="w-3 h-3 rounded-full bg-amber-400" />
-                <div className="w-3 h-3 rounded-full bg-emerald-400" />
-                <span className="text-xs font-medium text-slate-400 ml-2 font-mono">notehut-workspace</span>
+                <a
+                  href="#how-it-works"
+                  className={buttonVariants({ variant: "outline", size: "lg" })}
+                >
+                  See how it works
+                </a>
               </div>
-              <div className="bg-slate-200/60 text-slate-600 text-xs px-3 py-1 rounded-md font-mono flex items-center gap-1.5">
-                <Key className="w-3 h-3 text-indigo-600" />
-                BYOK: Ollama (qwen3-embedding)
+
+              <div className="mt-8 grid max-w-lg gap-3 border-t border-border pt-5 text-sm text-muted-foreground sm:grid-cols-3">
+                {["Email sign-up", "Your AI provider", "No AI markup"].map((item) => (
+                  <span key={item} className="flex items-center gap-2">
+                    <CheckCircle className="size-4 shrink-0 text-primary" />
+                    {item}
+                  </span>
+                ))}
               </div>
             </div>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-slate-200 min-h-[400px]">
-              {/* Left Panel: Document Upload & Topics */}
-              <div className="lg:col-span-4 p-6 bg-slate-50/50 flex flex-col justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                    <BookOpen className="w-4 h-4 text-indigo-600" />
-                    Topics & Documents
-                  </h3>
-                  <div className="space-y-2.5">
-                    <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <FileText className="w-4 h-4 text-indigo-500" />
-                        <span className="text-xs font-medium text-slate-700">Biology_Ch3_Genetics.pdf</span>
-                      </div>
-                      <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-medium">Processed</span>
-                    </div>
-                    <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <FileText className="w-4 h-4 text-indigo-500" />
-                        <span className="text-xs font-medium text-slate-700">Organic_Chemistry_Notes.pdf</span>
-                      </div>
-                      <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-medium">Processed</span>
+
+            <div className="relative mx-auto w-full max-w-2xl" aria-label="NoteHut study workspace preview">
+              <div className="absolute -left-6 top-14 -z-10 hidden h-36 w-20 border-l-2 border-t-2 border-amber-300/70 lg:block" aria-hidden="true" />
+              <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_24px_70px_rgba(30,41,59,0.16)]">
+                <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3 sm:px-5">
+                  <div className="flex items-center gap-2.5">
+                    <span className="grid size-7 place-items-center rounded-md bg-indigo-600 text-white">
+                      <BookOpen className="size-3.5" />
+                    </span>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-900">Cell biology</p>
+                      <p className="text-[11px] text-slate-500">3 source documents</p>
                     </div>
                   </div>
+                  <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700">
+                    Ready to study
+                  </span>
                 </div>
 
-                <div className="mt-6 border-2 border-dashed border-slate-200 rounded-xl p-6 text-center bg-white">
-                  <UploadCloud className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                  <p className="text-xs font-medium text-slate-700">Drag & drop study files</p>
-                  <p className="text-[10px] text-slate-400 mt-1">PDF, DOCX, or TXT up to 10MB</p>
-                </div>
-              </div>
-
-              {/* Middle Panel: Exam Runner */}
-              <div className="lg:col-span-5 p-6 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
-                      <GraduationCap className="w-4 h-4 text-indigo-600" />
-                      Adaptive Exam Runner
-                    </h3>
-                    <span className="text-[10px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full font-semibold">Question 3 of 10</span>
-                  </div>
-
-                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mb-4">
-                    <p className="text-xs font-medium text-slate-800 leading-relaxed">
-                      Which of the following best describes the primary function of DNA polymerase during replication?
+                <div className="grid sm:grid-cols-[1.15fr_0.85fr]">
+                  <div className="border-b border-slate-200 p-4 sm:border-b-0 sm:border-r sm:p-6">
+                    <div className="mb-5 flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-xs font-semibold text-slate-800">
+                        <GraduationCap className="size-4 text-indigo-600" />
+                        Adaptive exam
+                      </div>
+                      <span className="text-[11px] font-medium text-slate-500">4 of 10</span>
+                    </div>
+                    <div className="mb-4 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                      <div className="h-full w-2/5 rounded-full bg-indigo-600" />
+                    </div>
+                    <p className="text-sm font-semibold leading-6 text-slate-900">
+                      What role does the cell membrane play in maintaining homeostasis?
                     </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="border border-slate-200 rounded-lg p-3 text-xs text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors flex items-center gap-2.5">
-                      <div className="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center text-[9px] font-bold">A</div>
-                      Unwinding the double helix structure
-                    </div>
-                    <div className="border-2 border-indigo-600 bg-indigo-50/30 rounded-lg p-3 text-xs text-slate-900 cursor-pointer transition-colors flex items-center gap-2.5">
-                      <div className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[9px] font-bold">B</div>
-                      Synthesizing new DNA strands by adding nucleotides
-                    </div>
-                    <div className="border border-slate-200 rounded-lg p-3 text-xs text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors flex items-center gap-2.5">
-                      <div className="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center text-[9px] font-bold">C</div>
-                      Synthesizing RNA primers to initiate replication
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-end mt-6">
-                  <button className="bg-indigo-600 text-white text-xs font-semibold px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors">
-                    Submit Answer
-                  </button>
-                </div>
-              </div>
-
-              {/* Right Panel: Weakness Tracking */}
-              <div className="lg:col-span-3 p-6 bg-slate-50/30 flex flex-col justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                    <BarChart3 className="w-4 h-4 text-indigo-600" />
-                    Weakness Analytics
-                  </h3>
-                  <p className="text-[11px] text-slate-500 mb-4 leading-relaxed">
-                    AI automatically tracks incorrect answers and adapts future exams to focus on these topics.
-                  </p>
-
-                  <div className="space-y-3">
-                    <div>
-                      <div className="flex justify-between text-[10px] font-medium text-slate-600 mb-1">
-                        <span>DNA Replication</span>
-                        <span className="text-rose-600 font-semibold">4 errors</span>
-                      </div>
-                      <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                        <div className="bg-rose-500 h-full rounded-full" style={{ width: "80%" }} />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-[10px] font-medium text-slate-600 mb-1">
-                        <span>Transcription Factors</span>
-                        <span className="text-amber-600 font-semibold">2 errors</span>
-                      </div>
-                      <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                        <div className="bg-amber-500 h-full rounded-full" style={{ width: "40%" }} />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-[10px] font-medium text-slate-600 mb-1">
-                        <span>Mendelian Genetics</span>
-                        <span className="text-emerald-600 font-semibold">0 errors</span>
-                      </div>
-                      <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                        <div className="bg-emerald-500 h-full rounded-full" style={{ width: "5%" }} />
-                      </div>
+                    <div className="mt-4 space-y-2.5">
+                      {[
+                        ["A", "It stores genetic information", false],
+                        ["B", "It controls what enters and leaves", true],
+                        ["C", "It produces energy for the cell", false],
+                      ].map(([letter, label, selected]) => (
+                        <div
+                          key={String(letter)}
+                          className={cn(
+                            "flex items-center gap-3 rounded-lg border px-3 py-2.5 text-xs text-slate-600",
+                            selected
+                              ? "border-indigo-300 bg-indigo-50 text-slate-900"
+                              : "border-slate-200",
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "grid size-5 shrink-0 place-items-center rounded-full border text-[10px] font-bold",
+                              selected
+                                ? "border-indigo-600 bg-indigo-600 text-white"
+                                : "border-slate-300",
+                            )}
+                          >
+                            {letter}
+                          </span>
+                          {label}
+                        </div>
+                      ))}
                     </div>
                   </div>
-                </div>
 
-                <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 mt-6">
-                  <div className="flex gap-2">
-                    <Sparkles className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
-                    <p className="text-[10px] text-indigo-800 leading-relaxed">
-                      <strong>AI Bias Active:</strong> Next exam will contain 40% more questions on <em>DNA Replication</em>.
+                  <div className="bg-slate-50/70 p-4 sm:p-6">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-800">
+                      <BarChart3 className="size-4 text-amber-600" />
+                      Review focus
+                    </div>
+                    <p className="mt-2 text-[11px] leading-5 text-slate-500">
+                      Your next exam will revisit concepts that need another pass.
                     </p>
+                    <div className="mt-5 space-y-4">
+                      {[
+                        ["Membrane transport", "78%", "bg-rose-500"],
+                        ["Cell signaling", "52%", "bg-amber-500"],
+                        ["Organelles", "22%", "bg-emerald-500"],
+                      ].map(([label, width, color]) => (
+                        <div key={String(label)}>
+                          <div className="mb-1.5 flex justify-between gap-2 text-[11px] font-medium text-slate-600">
+                            <span>{label}</span>
+                            <span>{width}</span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-slate-200">
+                            <div className={cn("h-full rounded-full", color)} style={{ width: String(width) }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-6 rounded-lg border border-indigo-100 bg-white p-3 shadow-sm">
+                      <div className="flex items-start gap-2.5">
+                        <Sparkles className="mt-0.5 size-3.5 shrink-0 text-indigo-600" />
+                        <p className="text-[11px] leading-5 text-slate-600">
+                          Suggested next: review passive transport, then take a 5-question check.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
-      {/* Features Section */}
-      <section id="features" className="py-24 bg-white border-y border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl mb-4">
-              Everything You Need to Master Your Studies
-            </h2>
-            <p className="text-lg text-slate-600">
-              NoteHut combines advanced document processing, semantic search, and adaptive learning algorithms to create the ultimate study companion.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {/* Feature 1 */}
-            <div className="bg-[#f8f9ff] p-8 rounded-xl border border-slate-200/60 hover:border-indigo-200 transition-all hover:shadow-md hover:shadow-indigo-500/5">
-              <div className="bg-indigo-600 text-white p-3 rounded-lg w-fit mb-6">
-                <Brain className="w-6 h-6" />
-              </div>
-              <h3 className="text-lg font-bold text-slate-900 mb-3">Adaptive Exam Generation</h3>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                Generate custom exams featuring multiple-choice, checkbox, and essay questions. The system automatically biases questions toward your weak areas to maximize study efficiency.
-              </p>
-            </div>
-
-            {/* Feature 2 */}
-            <div className="bg-[#f8f9ff] p-8 rounded-xl border border-slate-200/60 hover:border-indigo-200 transition-all hover:shadow-md hover:shadow-indigo-500/5">
-              <div className="bg-indigo-600 text-white p-3 rounded-lg w-fit mb-6">
-                <Key className="w-6 h-6" />
-              </div>
-              <h3 className="text-lg font-bold text-slate-900 mb-3">Bring Your Own Key (BYOK)</h3>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                Connect your own Ollama or OpenAI-compatible API key. Your keys are stored securely in your browser&apos;s local storage, giving you complete control over privacy and costs.
-              </p>
-            </div>
-
-            {/* Feature 3 */}
-            <div className="bg-[#f8f9ff] p-8 rounded-xl border border-slate-200/60 hover:border-indigo-200 transition-all hover:shadow-md hover:shadow-indigo-500/5">
-              <div className="bg-indigo-600 text-white p-3 rounded-lg w-fit mb-6">
-                <MessageSquare className="w-6 h-6" />
-              </div>
-              <h3 className="text-lg font-bold text-slate-900 mb-3">Interactive AI Tutor</h3>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                Chat with an AI tutor that has full semantic access to your uploaded documents. Ask questions, request summaries, or get step-by-step explanations of complex concepts.
-              </p>
-            </div>
-
-            {/* Feature 4 */}
-            <div className="bg-[#f8f9ff] p-8 rounded-xl border border-slate-200/60 hover:border-indigo-200 transition-all hover:shadow-md hover:shadow-indigo-500/5">
-              <div className="bg-indigo-600 text-white p-3 rounded-lg w-fit mb-6">
-                <Layers className="w-6 h-6" />
-              </div>
-              <h3 className="text-lg font-bold text-slate-900 mb-3">Multi-File Topics</h3>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                Organize your study materials into unified Topics. Upload multiple PDFs, DOCX, or TXT files per topic and run comprehensive RAG queries across all of them simultaneously.
-              </p>
-            </div>
-
-            {/* Feature 5 */}
-            <div className="bg-[#f8f9ff] p-8 rounded-xl border border-slate-200/60 hover:border-indigo-200 transition-all hover:shadow-md hover:shadow-indigo-500/5">
-              <div className="bg-indigo-600 text-white p-3 rounded-lg w-fit mb-6">
-                <Share2 className="w-6 h-6" />
-              </div>
-              <h3 className="text-lg font-bold text-slate-900 mb-3">Public Exam Sharing</h3>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                Share your custom-generated exams with classmates or students via a public link. Guests can take the exam and get graded instantly with built-in rate limiting protection.
-              </p>
-            </div>
-
-            {/* Feature 6 */}
-            <div className="bg-[#f8f9ff] p-8 rounded-xl border border-slate-200/60 hover:border-indigo-200 transition-all hover:shadow-md hover:shadow-indigo-500/5">
-              <div className="bg-indigo-600 text-white p-3 rounded-lg w-fit mb-6">
-                <ShieldCheck className="w-6 h-6" />
-              </div>
-              <h3 className="text-lg font-bold text-slate-900 mb-3">Secure Admin Controls</h3>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                System administrators can monitor the background OCR queue, configure fallback API keys, and manage global application settings through a secure, masked dashboard.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* How It Works Section */}
-      <section id="how-it-works" className="py-24 bg-[#f8f9ff]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl mb-4">
-              How NoteHut Works
-            </h2>
-            <p className="text-lg text-slate-600">
-              Three simple steps to transform raw study materials into structured, long-term knowledge.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 relative">
-            {/* Step 1 */}
-            <div className="text-center relative">
-              <div className="bg-white border border-slate-200 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm text-xl font-bold text-indigo-600">
-                1
-              </div>
-              <h3 className="text-lg font-bold text-slate-900 mb-3">Upload Study Materials</h3>
-              <p className="text-sm text-slate-600 leading-relaxed max-w-xs mx-auto">
-                Upload PDFs, Word documents, or text files. Our pipeline extracts text, chunks it recursively, and generates vector embeddings.
-              </p>
-            </div>
-
-            {/* Step 2 */}
-            <div className="text-center relative">
-              <div className="bg-white border border-slate-200 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm text-xl font-bold text-indigo-600">
-                2
-              </div>
-              <h3 className="text-lg font-bold text-slate-900 mb-3">Generate Custom Exams</h3>
-              <p className="text-sm text-slate-600 leading-relaxed max-w-xs mx-auto">
-                Configure your exam settings (MCQ, checkbox, essay) and let our RAG pipeline generate highly relevant, context-grounded questions.
-              </p>
-            </div>
-
-            {/* Step 3 */}
-            <div className="text-center relative">
-              <div className="bg-white border border-slate-200 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm text-xl font-bold text-indigo-600">
-                3
-              </div>
-              <h3 className="text-lg font-bold text-slate-900 mb-3">Master Your Weaknesses</h3>
-              <p className="text-sm text-slate-600 leading-relaxed max-w-xs mx-auto">
-                Submit your answers for instant grading. The system tracks your incorrect answers and adapts future exams to target those specific topics.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* BYOK Section */}
-      <section id="byok" className="py-24 bg-white border-t border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-slate-900 rounded-2xl text-white p-8 sm:p-12 lg:p-16 relative overflow-hidden shadow-xl">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-            
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center relative z-10">
-              <div className="lg:col-span-7">
-                <div className="inline-flex items-center gap-1.5 bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 px-3 py-1 rounded-full text-xs font-semibold mb-6 uppercase tracking-wider">
-                  <Key className="w-3.5 h-3.5" />
-                  Bring Your Own Key (BYOK)
+              <div className="absolute -bottom-5 left-5 hidden items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 shadow-lg sm:flex">
+                <span className="grid size-8 place-items-center rounded-md bg-amber-50 text-amber-700">
+                  <FileText className="size-4" />
+                </span>
+                <div>
+                  <p className="text-[11px] font-semibold text-slate-800">chapter-04.pdf</p>
+                  <p className="text-[10px] text-slate-500">Processed and ready</p>
                 </div>
-                <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-6">
-                  Complete Control Over Your AI Costs & Privacy
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="features" className="scroll-mt-20 bg-card py-16 sm:py-20">
+          <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="grid gap-10 lg:grid-cols-[0.72fr_1.28fr] lg:gap-16">
+              <div>
+                <p className="text-sm font-semibold text-primary">Built for active study</p>
+                <h2 className="mt-3 text-3xl font-bold tracking-[-0.035em] sm:text-4xl">
+                  Less organizing. More learning.
                 </h2>
-                <p className="text-slate-300 text-base sm:text-lg mb-8 leading-relaxed">
-                  Unlike traditional SaaS platforms that charge heavy markups on AI usage, NoteHut operates on a BYOK architecture. Connect your local Ollama instance or input your own OpenAI-compatible API keys. 
+                <p className="mt-4 max-w-md leading-7 text-muted-foreground">
+                  The useful parts of a study session stay connected—from the source PDF to the question you missed.
                 </p>
-                <ul className="space-y-3.5 text-sm text-slate-300">
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-5 h-5 text-indigo-400 shrink-0" />
-                    <span><strong>Zero Markup:</strong> Pay only what the AI provider charges, or run completely free locally.</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-5 h-5 text-indigo-400 shrink-0" />
-                    <span><strong>Local Embeddings:</strong> Default support for Ollama&apos;s <code>qwen3-embedding:0.6b</code>.</span>
-                  </li>
-                  <li className="flex items-center gap-2.5">
-                    <CheckCircle className="w-5 h-5 text-indigo-400 shrink-0" />
-                    <span><strong>Secure Storage:</strong> Keys are stored locally in your browser&apos;s via Zustand and never touch our servers.</span>
-                  </li>
-                </ul>
               </div>
 
-              <div className="lg:col-span-5 bg-slate-800/50 border border-slate-700 rounded-xl p-6 sm:p-8">
-                <h3 className="text-base font-bold mb-4 flex items-center gap-2">
-                  <Cpu className="w-5 h-5 text-indigo-400" />
-                  Supported Providers
-                </h3>
-                <div className="space-y-3">
-                  <div className="bg-slate-900/60 border border-slate-700/50 p-3.5 rounded-lg flex items-center justify-between">
-                    <span className="text-sm font-medium">Ollama (Local AI)</span>
-                    <span className="text-xs bg-indigo-500/20 text-indigo-300 px-2.5 py-0.5 rounded-full font-semibold">Free & Local</span>
+              <div className="grid gap-px overflow-hidden rounded-xl border border-border bg-border md:grid-cols-3">
+                {features.map((feature) => (
+                  <article key={feature.title} className="bg-card p-6 sm:p-7">
+                    <div className="mb-8 grid size-10 place-items-center rounded-lg bg-primary/10 text-primary">
+                      <feature.icon className="size-5" />
+                    </div>
+                    <h3 className="font-semibold tracking-tight">{feature.title}</h3>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                      {feature.description}
+                    </p>
+                  </article>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="how-it-works" className="scroll-mt-20 border-y border-border/75 bg-muted/45 py-16 sm:py-20">
+          <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="max-w-2xl">
+              <p className="text-sm font-semibold text-primary">A clearer study loop</p>
+              <h2 className="mt-3 text-3xl font-bold tracking-[-0.035em] sm:text-4xl">
+                From source material to focused recall.
+              </h2>
+            </div>
+
+            <div className="mt-10 grid gap-5 md:grid-cols-3">
+              {steps.map((step) => (
+                <article key={step.number} className="relative border-t-2 border-foreground/15 pt-6">
+                  <span className="font-mono text-xs font-semibold tracking-[0.14em] text-primary">
+                    {step.number}
+                  </span>
+                  <h3 className="mt-6 text-lg font-semibold tracking-tight">{step.title}</h3>
+                  <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
+                    {step.description}
+                  </p>
+                </article>
+              ))}
+            </div>
+
+            <div className="mt-12 grid gap-3 sm:grid-cols-3">
+              {([
+                [UploadCloud, "PDFs up to 25 MB"],
+                [MessageSquare, "Grounded topic chat"],
+                [BarChart3, "Weakness-aware review"],
+              ] as const).map(([Icon, label]) => {
+                const ItemIcon = Icon;
+                return (
+                  <div key={String(label)} className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium">
+                    <ItemIcon className="size-4 text-primary" />
+                    {label}
                   </div>
-                  <div className="bg-slate-900/60 border border-slate-700/50 p-3.5 rounded-lg flex items-center justify-between">
-                    <span className="text-sm font-medium">OpenAI (GPT-4o, GPT-4o-mini)</span>
-                    <span className="text-xs bg-slate-700 text-slate-300 px-2.5 py-0.5 rounded-full font-semibold">Cloud API</span>
-                  </div>
-                  <div className="bg-slate-900/60 border border-slate-700/50 p-3.5 rounded-lg flex items-center justify-between">
-                    <span className="text-sm font-medium">Anthropic (Claude 3.5 Sonnet)</span>
-                    <span className="text-xs bg-slate-700 text-slate-300 px-2.5 py-0.5 rounded-full font-semibold">Cloud API</span>
-                  </div>
-                  <div className="bg-slate-900/60 border border-slate-700/50 p-3.5 rounded-lg flex items-center justify-between">
-                    <span className="text-sm font-medium">Google Gemini (Gemini 1.5 Pro)</span>
-                    <span className="text-xs bg-slate-700 text-slate-300 px-2.5 py-0.5 rounded-full font-semibold">Cloud API</span>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        <section id="privacy" className="scroll-mt-20 bg-[#11182c] py-16 text-white sm:py-20">
+          <div className="mx-auto grid w-full max-w-7xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
+            <div className="max-w-2xl">
+              <div className="inline-flex items-center gap-2 rounded-full border border-indigo-300/20 bg-indigo-300/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-indigo-200">
+                <ShieldCheck className="size-3.5" />
+                Bring your own key
+              </div>
+              <h2 className="mt-5 text-3xl font-bold tracking-[-0.035em] sm:text-4xl">
+                Your study workspace should work on your terms.
+              </h2>
+              <p className="mt-5 max-w-xl leading-7 text-slate-300">
+                Connect a compatible cloud model or your own local AI setup. NoteHut keeps your configuration in browser storage and sends credentials only with the AI requests that need them.
+              </p>
+              <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm text-slate-300">
+                <span className="flex items-center gap-2"><CheckCircle className="size-4 text-amber-300" />No AI usage markup</span>
+                <span className="flex items-center gap-2"><CheckCircle className="size-4 text-amber-300" />Local-model friendly</span>
+                <span className="flex items-center gap-2"><CheckCircle className="size-4 text-amber-300" />Keys are not saved to the app database</span>
+              </div>
+            </div>
+
+            <div className="border border-white/10 bg-white/[0.04] p-5 sm:p-6">
+              <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                <div className="flex items-center gap-2.5">
+                  <span className="grid size-9 place-items-center rounded-lg bg-indigo-400/15 text-indigo-200"><Key className="size-4" /></span>
+                  <div>
+                    <p className="text-sm font-semibold">AI connection</p>
+                    <p className="text-xs text-slate-400">Configured by you</p>
                   </div>
                 </div>
+                <span className="rounded-full bg-emerald-400/10 px-2.5 py-1 text-xs font-medium text-emerald-300">Connected</span>
               </div>
+              <dl className="mt-5 space-y-4 text-sm">
+                <div className="flex items-center justify-between gap-4"><dt className="text-slate-400">Provider</dt><dd className="font-medium">Custom compatible API</dd></div>
+                <div className="flex items-center justify-between gap-4"><dt className="text-slate-400">Embedding model</dt><dd className="font-mono text-xs text-slate-200">qwen3-embedding</dd></div>
+                <div className="flex items-center justify-between gap-4"><dt className="text-slate-400">Key storage</dt><dd className="font-medium">This browser</dd></div>
+              </dl>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Tech Stack Section */}
-      <section id="tech-stack" className="py-24 bg-[#f8f9ff] border-t border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl mb-4">
-              Built on a Modern, Scalable Stack
+        <section className="bg-card py-16 sm:py-20">
+          <div className="mx-auto flex w-full max-w-5xl flex-col items-center px-4 text-center sm:px-6">
+            <span className="grid size-12 place-items-center rounded-xl bg-primary/10 text-primary">
+              <Sparkles className="size-6" />
+            </span>
+            <h2 className="mt-6 text-3xl font-bold tracking-[-0.035em] sm:text-4xl">
+              Make the next study session count.
             </h2>
-            <p className="text-lg text-slate-600">
-              NoteHut leverages cutting-edge technologies to deliver a fast, secure, and highly responsive user experience.
+            <p className="mt-4 max-w-xl leading-7 text-muted-foreground">
+              Build a workspace around the material you need to know, then let every question sharpen what comes next.
             </p>
+            <Link href={primaryHref} className={cn(buttonVariants({ size: "lg" }), "group mt-8")}>
+              {primaryLabel}
+              <ArrowRight className="transition-transform group-hover:translate-x-0.5" />
+            </Link>
           </div>
+        </section>
+      </main>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
-            <div className="bg-white p-6 rounded-xl border border-slate-200/60 text-center flex flex-col items-center justify-center shadow-sm">
-              <div className="bg-indigo-50 text-indigo-600 p-3 rounded-lg mb-4">
-                <Layers className="w-6 h-6" />
-              </div>
-              <span className="text-sm font-bold text-slate-900">Next.js 15</span>
-              <span className="text-[10px] text-slate-400 mt-1">App Router & Turbopack</span>
-            </div>
-
-            <div className="bg-white p-6 rounded-xl border border-slate-200/60 text-center flex flex-col items-center justify-center shadow-sm">
-              <div className="bg-indigo-50 text-indigo-600 p-3 rounded-lg mb-4">
-                <Cpu className="w-6 h-6" />
-              </div>
-              <span className="text-sm font-bold text-slate-900">React 19</span>
-              <span className="text-[10px] text-slate-400 mt-1">Concurrent Rendering</span>
-            </div>
-
-            <div className="bg-white p-6 rounded-xl border border-slate-200/60 text-center flex flex-col items-center justify-center shadow-sm">
-              <div className="bg-indigo-50 text-indigo-600 p-3 rounded-lg mb-4">
-                <Database className="w-6 h-6" />
-              </div>
-              <span className="text-sm font-bold text-slate-900">Supabase</span>
-              <span className="text-[10px] text-slate-400 mt-1">Auth, DB, & Storage</span>
-            </div>
-
-            <div className="bg-white p-6 rounded-xl border border-slate-200/60 text-center flex flex-col items-center justify-center shadow-sm">
-              <div className="bg-indigo-50 text-indigo-600 p-3 rounded-lg mb-4">
-                <Database className="w-6 h-6" />
-              </div>
-              <span className="text-sm font-bold text-slate-900">pgvector</span>
-              <span className="text-[10px] text-slate-400 mt-1">Vector Embeddings</span>
-            </div>
-
-            <div className="bg-white p-6 rounded-xl border border-slate-200/60 text-center flex flex-col items-center justify-center shadow-sm">
-              <div className="bg-indigo-50 text-indigo-600 p-3 rounded-lg mb-4">
-                <Key className="w-6 h-6" />
-              </div>
-              <span className="text-sm font-bold text-slate-900">Zustand</span>
-              <span className="text-[10px] text-slate-400 mt-1">Local State Persist</span>
-            </div>
-
-            <div className="bg-white p-6 rounded-xl border border-slate-200/60 text-center flex flex-col items-center justify-center shadow-sm">
-              <div className="bg-indigo-50 text-indigo-600 p-3 rounded-lg mb-4">
-                <Sparkles className="w-6 h-6" />
-              </div>
-              <span className="text-sm font-bold text-slate-900">AI SDK v7</span>
-              <span className="text-[10px] text-slate-400 mt-1">Unified AI Streaming</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Final CTA Section */}
-      <section className="py-24 bg-white border-t border-slate-200">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl mb-6">
-            Ready to Supercharge Your Learning?
-          </h2>
-          <p className="text-lg text-slate-600 mb-10 max-w-2xl mx-auto">
-            Join NoteHut today and experience the power of adaptive, AI-driven study tools with complete privacy and cost control.
+      <footer className="border-t border-border bg-background py-8">
+        <div className="mx-auto flex w-full max-w-7xl flex-col items-center justify-between gap-4 px-4 sm:flex-row sm:px-6 lg:px-8">
+          <BrandMark iconClassName="size-8" wordmarkClassName="text-base" />
+          <p className="text-center text-xs leading-5 text-muted-foreground sm:text-right">
+            © {new Date().getFullYear()} NoteHut. Adaptive study, grounded in your material.
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            {user ? (
-              <Link 
-                href="/dashboard" 
-                className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-8 py-3.5 rounded-xl transition-all shadow-md shadow-indigo-500/10 flex items-center justify-center gap-2 group"
-              >
-                Go to Dashboard
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </Link>
-            ) : (
-              <>
-                <Link 
-                  href="/register" 
-                  className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-8 py-3.5 rounded-xl transition-all shadow-md shadow-indigo-500/10 flex items-center justify-center gap-2 group"
-                >
-                  Create Free Account
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </Link>
-                <Link 
-                  href="/login" 
-                  className="w-full sm:w-auto bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 font-medium px-8 py-3.5 rounded-xl transition-all flex items-center justify-center gap-2"
-                >
-                  Sign In to NoteHut
-                </Link>
-              </>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="bg-slate-900 text-slate-400 py-12 border-t border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-2.5">
-              <div className="bg-indigo-600 text-white p-1.5 rounded-md">
-                <Brain className="w-4 h-4" />
-              </div>
-              <span className="font-bold text-lg tracking-tight text-white">
-                NoteHut
-              </span>
-            </div>
-            <p className="text-xs text-slate-500">
-              &copy; {new Date().getFullYear()} NoteHut. All rights reserved. Built with Next.js 15, Supabase, and pgvector.
-            </p>
-            <div className="flex gap-6 text-xs">
-              <a href="#features" className="hover:text-white transition-colors">Features</a>
-              <a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a>
-              <a href="#byok" className="hover:text-white transition-colors">BYOK</a>
-            </div>
-          </div>
         </div>
       </footer>
     </div>

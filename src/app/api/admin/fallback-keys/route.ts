@@ -2,18 +2,31 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { z } from 'zod'
+import {
+  fallbackEmbeddingsSchema,
+  fallbackLlmSchema,
+} from '@/lib/ai/fallback-config'
 
-const putSchema = z.object({
-  key: z.enum(['fallback_llm', 'fallback_embeddings']),
-  value: z.object({
-    llmProvider: z.enum(['custom', 'gemini', 'deepseek']).optional(),
-    llmBaseURL: z.string().max(2048).optional().or(z.literal('')),
-    llmApiKey: z.string().min(1).max(500),
-    llmModelName: z.string().min(1).max(200),
-    embeddingsBaseURL: z.string().max(2048).optional().or(z.literal('')),
-    embeddingsModel: z.string().max(200).optional(),
+const putSchema = z.discriminatedUnion('key', [
+  z.object({
+    key: z.literal('fallback_llm'),
+    value: z.object({
+      llmProvider: z.enum(['custom', 'gemini', 'deepseek']).optional(),
+      llmBaseURL: z.string().max(2048).optional(),
+      // Omitted while editing a masked existing value; merged server-side.
+      llmApiKey: z.string().max(2048).optional(),
+      llmModelName: z.string().max(256).optional(),
+    }),
   }),
-})
+  z.object({
+    key: z.literal('fallback_embeddings'),
+    value: z.object({
+      embeddingsBaseURL: z.string().url().max(2048),
+      embeddingsApiKey: z.string().max(2048).optional(),
+      embeddingsModel: z.string().trim().min(1).max(256),
+    }),
+  }),
+])
 
 /** Mask an API key for safe display (shows first 4 + last 4 chars). */
 function maskKey(key: string): string {
@@ -27,7 +40,7 @@ function maskSecretValue(value: unknown): unknown {
   const obj = value as Record<string, unknown>
   const masked: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(obj)) {
-    if (k.toLowerCase().includes('key') && typeof v === 'string') {
+    if (k.toLowerCase().includes('key') && typeof v === 'string' && v) {
       masked[k] = maskKey(v)
     } else {
       masked[k] = v
@@ -86,9 +99,69 @@ export async function PUT(req: NextRequest) {
     }
 
     const serviceClient = createServiceClient()
-    const { data: updated } = await serviceClient
-      .from('app_secrets').update({ value: body.value }).eq('key', body.key).select('key').maybeSingle()
+    let nextValue: unknown = body.value
 
+    if (body.key === 'fallback_llm') {
+      const { data: current } = await serviceClient
+        .from('app_secrets')
+        .select('value')
+        .eq('key', body.key)
+        .maybeSingle()
+      const currentValue =
+        current?.value && typeof current.value === 'object'
+          ? current.value as Record<string, unknown>
+          : {}
+      const candidate = {
+        ...currentValue,
+        ...body.value,
+        llmApiKey:
+          body.value.llmApiKey && !body.value.llmApiKey.includes('•')
+            ? body.value.llmApiKey
+            : currentValue.llmApiKey,
+      }
+      const parsed = fallbackLlmSchema.safeParse(candidate)
+      if (!parsed.success) {
+        return NextResponse.json(
+          { error: parsed.error.issues[0]?.message || 'Invalid LLM configuration' },
+          { status: 400 },
+        )
+      }
+      nextValue = parsed.data
+    } else {
+      const { data: current } = await serviceClient
+        .from('app_secrets')
+        .select('value')
+        .eq('key', body.key)
+        .maybeSingle()
+      const currentValue =
+        current?.value && typeof current.value === 'object'
+          ? current.value as Record<string, unknown>
+          : {}
+      const candidate = {
+        ...currentValue,
+        ...body.value,
+        embeddingsApiKey:
+          body.value.embeddingsApiKey && !body.value.embeddingsApiKey.includes('•')
+            ? body.value.embeddingsApiKey
+            : currentValue.embeddingsApiKey ?? '',
+      }
+      const parsed = fallbackEmbeddingsSchema.safeParse(candidate)
+      if (!parsed.success) {
+        return NextResponse.json(
+          { error: parsed.error.issues[0]?.message || 'Invalid embeddings configuration' },
+          { status: 400 },
+        )
+      }
+      nextValue = parsed.data
+    }
+
+    const { data: updated, error: updateError } = await serviceClient
+      .from('app_secrets').update({ value: nextValue }).eq('key', body.key).select('key').maybeSingle()
+
+    if (updateError) {
+      console.error('app_secrets update error:', updateError)
+      return NextResponse.json({ error: 'Failed to save secret' }, { status: 500 })
+    }
     if (!updated) {
       return NextResponse.json({ error: 'Secret not found' }, { status: 404 })
     }

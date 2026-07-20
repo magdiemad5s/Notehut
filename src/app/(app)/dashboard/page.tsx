@@ -9,6 +9,8 @@ import {
   MessageSquare,
   BookOpen,
   ArrowRight,
+  FileText,
+  BarChart3,
 } from "lucide-react";
 
 export default async function DashboardPage() {
@@ -57,10 +59,11 @@ export default async function DashboardPage() {
   const email = user.email ?? "User";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 sm:space-y-8">
       {/* Welcome section */}
-      <div>
-        <h1 className="text-2xl font-heading font-bold">
+      <div className="min-w-0 space-y-1">
+        <p className="text-sm font-medium text-primary">Study overview</p>
+        <h1 className="text-2xl font-heading font-bold tracking-tight [overflow-wrap:anywhere] sm:text-3xl">
           Welcome back, {email}
         </h1>
         <p className="text-muted-foreground">
@@ -69,29 +72,32 @@ export default async function DashboardPage() {
       </div>
 
       {/* Stats row */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle>Topics</CardTitle>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
+        <Card size="sm" className="relative overflow-hidden">
+          <CardHeader className="flex-row items-center justify-between">
+            <CardTitle className="text-sm text-muted-foreground">Topics</CardTitle>
+            <div className="rounded-lg bg-primary/10 p-2 text-primary"><BookOpen className="size-4" /></div>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{topicsCount}</p>
+            <p className="text-2xl font-bold tabular-nums sm:text-3xl">{topicsCount}</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Documents</CardTitle>
+        <Card size="sm" className="relative overflow-hidden">
+          <CardHeader className="flex-row items-center justify-between">
+            <CardTitle className="text-sm text-muted-foreground">Documents</CardTitle>
+            <div className="rounded-lg bg-primary/10 p-2 text-primary"><FileText className="size-4" /></div>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{documentsCount}</p>
+            <p className="text-2xl font-bold tabular-nums sm:text-3xl">{documentsCount}</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Weaknesses</CardTitle>
+        <Card size="sm" className="relative col-span-2 overflow-hidden sm:col-span-1">
+          <CardHeader className="flex-row items-center justify-between">
+            <CardTitle className="text-sm text-muted-foreground">Review areas</CardTitle>
+            <div className="rounded-lg bg-amber-500/10 p-2 text-amber-600 dark:text-amber-400"><BarChart3 className="size-4" /></div>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">
+            <p className="text-2xl font-bold tabular-nums sm:text-3xl">
               {weaknessesCount > 0 ? weaknessesCount : "\u2014"}
             </p>
           </CardContent>
@@ -99,13 +105,13 @@ export default async function DashboardPage() {
       </div>
 
       {/* Quick actions row */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
         <Link
           href="/topics/new"
           className={buttonVariants({
             variant: "outline",
             className:
-              "h-auto flex-col items-start gap-3 p-4 text-left",
+              "h-auto min-h-28 flex-col items-start gap-3 whitespace-normal p-5 text-left hover:border-primary/30 hover:bg-muted/60 sm:min-h-32",
           })}
         >
           <Plus className="size-5 shrink-0" />
@@ -121,7 +127,7 @@ export default async function DashboardPage() {
           className={buttonVariants({
             variant: "outline",
             className:
-              "h-auto flex-col items-start gap-3 p-4 text-left",
+              "h-auto min-h-28 flex-col items-start gap-3 whitespace-normal p-5 text-left hover:border-primary/30 hover:bg-muted/60 sm:min-h-32",
           })}
         >
           <UploadCloud className="size-5 shrink-0" />
@@ -137,7 +143,7 @@ export default async function DashboardPage() {
           className={buttonVariants({
             variant: "outline",
             className:
-              "h-auto flex-col items-start gap-3 p-4 text-left",
+              "h-auto min-h-28 flex-col items-start gap-3 whitespace-normal p-5 text-left hover:border-primary/30 hover:bg-muted/60 sm:col-span-2 sm:min-h-32 lg:col-span-1",
           })}
         >
           <MessageSquare className="size-5 shrink-0" />
@@ -178,8 +184,8 @@ export default async function DashboardPage() {
           </div>
         </section>
       ) : (
-        <Card className="p-12 text-center">
-          <BookOpen className="size-12 mx-auto mb-4 text-muted-foreground" />
+        <Card className="border-dashed p-8 text-center sm:p-12">
+          <div className="mx-auto mb-4 w-fit rounded-full bg-muted p-4"><BookOpen className="size-8 text-muted-foreground" /></div>
           <h3 className="text-xl font-heading font-semibold">
             Start your learning journey
           </h3>

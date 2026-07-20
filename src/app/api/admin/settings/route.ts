@@ -6,7 +6,6 @@ import { z } from 'zod'
 const putSchema = z.object({
   key: z.enum([
     'accelerated_ocr_online',
-    'worker_online',
     'ocr_worker_url',
     'ocr_worker_api_key',
     'exam_model',
@@ -16,6 +15,15 @@ const putSchema = z.object({
   ]),
   value: z.union([z.boolean(), z.string().max(2000)]),
 })
+
+const MASKED_VALUE = '••••••••'
+
+function maskSetting(key: string, value: unknown): unknown {
+  if (key !== 'ocr_worker_api_key' || typeof value !== 'string' || !value) {
+    return value
+  }
+  return MASKED_VALUE
+}
 
 export async function GET() {
   try {
@@ -29,7 +37,11 @@ export async function GET() {
 
     const serviceClient = createServiceClient()
     const { data } = await serviceClient.from('app_settings').select('key, value')
-    return NextResponse.json({ settings: data || [] }, { status: 200 })
+    const settings = (data ?? []).map((setting) => ({
+      ...setting,
+      value: maskSetting(setting.key, setting.value),
+    }))
+    return NextResponse.json({ settings }, { status: 200 })
   } catch (error) {
     console.error('GET /api/admin/settings error:', error)
     return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 })
@@ -59,9 +71,20 @@ export async function PUT(req: NextRequest) {
     }
 
     const serviceClient = createServiceClient()
-    const { data: updated } = await serviceClient
+    if (
+      body.key === 'ocr_worker_api_key' &&
+      typeof body.value === 'string' &&
+      body.value.includes('•')
+    ) {
+      return NextResponse.json({ success: true }, { status: 200 })
+    }
+    const { data: updated, error: updateError } = await serviceClient
       .from('app_settings').update({ value: body.value }).eq('key', body.key).select('key').maybeSingle()
 
+    if (updateError) {
+      console.error('app_settings update error:', updateError)
+      return NextResponse.json({ error: 'Failed to save setting' }, { status: 500 })
+    }
     if (!updated) {
       return NextResponse.json({ error: 'Setting not found' }, { status: 404 })
     }

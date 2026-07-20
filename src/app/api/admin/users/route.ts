@@ -20,7 +20,8 @@ export async function GET() {
       .order('created_at', { ascending: false })
 
     if (profilesError) {
-      return NextResponse.json({ error: profilesError.message }, { status: 500 })
+      console.error('profiles list error:', profilesError)
+      return NextResponse.json({ error: 'Failed to load users' }, { status: 500 })
     }
 
     const { data: docCounts } = await serviceClient
@@ -82,7 +83,8 @@ export async function PUT(req: NextRequest) {
       .eq('id', body.userId)
 
     if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 })
+      console.error('profiles admin update error:', updateError)
+      return NextResponse.json({ error: 'Failed to update user role' }, { status: 500 })
     }
 
     return NextResponse.json({ success: true }, { status: 200 })

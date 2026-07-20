@@ -75,21 +75,18 @@ export interface Database {
           document_id: string
           content: string
           embedding: string
-          created_at: string
         }
         Insert: {
           id?: string
           document_id: string
           content: string
           embedding?: string
-          created_at?: string
         }
         Update: {
           id?: string
           document_id?: string
           content?: string
           embedding?: string
-          created_at?: string
         }
       }
       ocr_queue: {
@@ -101,6 +98,7 @@ export interface Database {
           status: string
           extracted_text: string | null
           error: string | null
+          claim_token: string | null
           created_at: string
           updated_at: string
         }
@@ -112,6 +110,7 @@ export interface Database {
           status?: string
           extracted_text?: string | null
           error?: string | null
+          claim_token?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -123,6 +122,7 @@ export interface Database {
           status?: string
           extracted_text?: string | null
           error?: string | null
+          claim_token?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -132,126 +132,83 @@ export interface Database {
           id: string
           user_id: string
           topic_name: string
-          weakness_score: number
-          last_assessed: string
+          error_count: number
+          last_failed_at: string
         }
         Insert: {
           id?: string
           user_id: string
           topic_name: string
-          weakness_score: number
-          last_assessed?: string
+          error_count?: number
+          last_failed_at?: string
         }
         Update: {
           id?: string
           user_id?: string
           topic_name?: string
-          weakness_score?: number
-          last_assessed?: string
+          error_count?: number
+          last_failed_at?: string
         }
       }
       shared_exams: {
         Row: {
           id: string
-          owner_id: string
+          topic_id: string
+          creator_id: string
           title: string
-          questions_json: string
+          questions_json: unknown
+          is_public: boolean
           created_at: string
         }
         Insert: {
           id?: string
-          owner_id: string
+          topic_id: string
+          creator_id: string
           title: string
-          questions_json: string
+          questions_json: unknown
+          is_public?: boolean
           created_at?: string
         }
         Update: {
           id?: string
-          owner_id?: string
+          topic_id?: string
+          creator_id?: string
           title?: string
-          questions_json?: string
+          questions_json?: unknown
+          is_public?: boolean
           created_at?: string
         }
       }
       app_settings: {
         Row: {
           key: string
-          value: boolean
+          value: unknown
         }
         Insert: {
           key: string
-          value: boolean
+          value: unknown
         }
         Update: {
           key?: string
-          value?: boolean
+          value?: unknown
         }
       }
       app_secrets: {
         Row: {
           key: string
-          value: string
+          value: unknown
         }
         Insert: {
           key: string
-          value: string
+          value: unknown
         }
         Update: {
           key?: string
-          value?: string
+          value?: unknown
         }
       }
     }
   }
-}
-
-export interface BYOKConfig {
-  llmProvider: string
-  llmBaseURL: string
-  llmApiKey: string
-  llmModelName: string
-  embeddingsBaseURL: string
-  embeddingsModel: string
-}
-
-export type LlmProvider = 'custom' | 'gemini' | 'deepseek'
-
-export interface McqQuestion {
-  type: 'mcq'
-  question: string
-  options: string[]
-  correctIndex: number
-  topicTags: string[]
-}
-
-export interface CheckboxQuestion {
-  type: 'checkbox'
-  question: string
-  options: string[]
-  correctIndices: number[]
-  topicTags: string[]
-}
-
-export interface EssayQuestion {
-  type: 'essay'
-  question: string
-  modelAnswer: string
-  topicTags: string[]
-}
-
-export type Question = McqQuestion | CheckboxQuestion | EssayQuestion
-
-export interface Exam {
-  id: string
-  title: string
-  questions: Question[]
-  created_at: string
-}
-
-export interface GradeResult {
-  score: number
-  totalQuestions: number
-  feedback: string
 }
 
 export interface ChatMessage {
@@ -261,4 +218,4 @@ export interface ChatMessage {
   created_at: string
 }
 
-export type OcrStatus = 'pending' | 'processing' | 'completed' | 'failed'
+export type OcrStatus = 'pending' | 'processing' | 'completed' | 'embedded' | 'failed'

@@ -52,14 +52,13 @@ export async function GET() {
 }
 
 const postSchema = z.object({
-  action: z.enum(['process', 'retry', 'delete']),
+  action: z.enum(['retry', 'delete']),
   queueId: z.string().uuid(),
 })
 
 /**
  * POST /api/admin/queue
  * Actions:
- *   - process: triggers the embeddings pipeline for a pending queue item
  *   - retry: resets a failed item to pending
  *   - delete: removes the queue item and associated document
  */
@@ -91,60 +90,63 @@ export async function POST(req: NextRequest) {
       const { data: queueItem } = await serviceClient
         .from('ocr_queue').select('document_id').eq('id', body.queueId).maybeSingle()
 
-      const { error: deleteError } = await serviceClient
-        .from('ocr_queue').delete().eq('id', body.queueId)
-
-      if (deleteError) {
-        return NextResponse.json({ error: `Failed to delete: ${deleteError.message}` }, { status: 500 })
-      }
-
       if (queueItem?.document_id) {
-        await serviceClient.from('documents').delete().eq('id', queueItem.document_id)
+        const { data: document } = await serviceClient
+          .from('documents')
+          .select('storage_path')
+          .eq('id', queueItem.document_id)
+          .maybeSingle()
+
+        if (document?.storage_path) {
+          const { error: storageError } = await serviceClient.storage
+            .from('pdfs')
+            .remove([document.storage_path])
+          if (storageError) {
+            return NextResponse.json(
+              { error: 'Failed to delete the stored PDF' },
+              { status: 500 },
+            )
+          }
+        }
+
+        const { error: deleteError } = await serviceClient
+          .from('documents')
+          .delete()
+          .eq('id', queueItem.document_id)
+        if (deleteError) {
+          return NextResponse.json({ error: 'Failed to delete document' }, { status: 500 })
+        }
+      } else {
+        const { error: deleteError } = await serviceClient
+          .from('ocr_queue').delete().eq('id', body.queueId)
+        if (deleteError) {
+          return NextResponse.json({ error: 'Failed to delete queue item' }, { status: 500 })
+        }
       }
 
       return NextResponse.json({ success: true, action: 'deleted' }, { status: 200 })
     }
 
     if (body.action === 'retry') {
-      const { error: updateError } = await serviceClient
+      const { data: updated, error: updateError } = await serviceClient
         .from('ocr_queue')
-        .update({ status: 'pending', error: null })
+        .update({ status: 'pending', error: null, claim_token: null })
         .eq('id', body.queueId)
+        .eq('status', 'failed')
+        .select('id')
+        .maybeSingle()
 
       if (updateError) {
         return NextResponse.json({ error: `Failed to retry: ${updateError.message}` }, { status: 500 })
       }
-
-      return NextResponse.json({ success: true, action: 'retried' }, { status: 200 })
-    }
-
-    if (body.action === 'process') {
-      await serviceClient
-        .from('ocr_queue')
-        .update({ status: 'processing' })
-        .eq('id', body.queueId)
-
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-      const embeddingsRes = await fetch(`${baseUrl}/api/embeddings`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ queueId: body.queueId }),
-      })
-
-      if (!embeddingsRes.ok) {
-        const errData = await embeddingsRes.json().catch(() => ({}))
-        await serviceClient
-          .from('ocr_queue')
-          .update({ status: 'failed', error: errData.error || 'Embeddings failed' })
-          .eq('id', body.queueId)
-
+      if (!updated) {
         return NextResponse.json(
-          { error: `Processing failed: ${errData.error || embeddingsRes.statusText}` },
-          { status: 500 }
+          { error: 'Only failed queue items can be retried' },
+          { status: 409 },
         )
       }
 
-      return NextResponse.json({ success: true, action: 'processed' }, { status: 200 })
+      return NextResponse.json({ success: true, action: 'retried' }, { status: 200 })
     }
 
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 })

@@ -38,16 +38,16 @@ function formatCheckboxAnswer(
 
 /** Determine the colour class for the overall score. */
 function scoreColorClass(percentage: number): string {
-  if (percentage >= 70) return 'text-green-600'
-  if (percentage >= 50) return 'text-amber-600'
-  return 'text-red-600'
+  if (percentage >= 70) return 'text-emerald-700 dark:text-emerald-400'
+  if (percentage >= 50) return 'text-amber-700 dark:text-amber-400'
+  return 'text-red-700 dark:text-red-400'
 }
 
 /** Determine the background class for the overall score card. */
 function scoreBgClass(percentage: number): string {
-  if (percentage >= 70) return 'bg-green-50 border-green-200'
-  if (percentage >= 50) return 'bg-amber-50 border-amber-200'
-  return 'bg-red-50 border-red-200'
+  if (percentage >= 70) return 'bg-emerald-50 border-emerald-200 dark:border-emerald-900 dark:bg-emerald-950/40'
+  if (percentage >= 50) return 'bg-amber-50 border-amber-200 dark:border-amber-900 dark:bg-amber-950/40'
+  return 'bg-red-50 border-red-200 dark:border-red-900 dark:bg-red-950/40'
 }
 
 export default function ExamResults({
@@ -56,10 +56,12 @@ export default function ExamResults({
   answers,
 }: ExamResultsProps) {
   const totalQuestions = exam.questions.length
-  const correctCount = results.filter((r) => r.isCorrect).length
   const percentage =
     totalQuestions > 0
-      ? Math.round((correctCount / totalQuestions) * 100)
+      ? Math.round(
+          results.reduce((sum, result) => sum + result.score, 0) /
+            totalQuestions,
+        )
       : 0
 
   return (
@@ -74,7 +76,7 @@ export default function ExamResults({
             {percentage}%
           </span>
           <p className="text-sm text-muted-foreground">
-            {correctCount} of {totalQuestions} correct
+            Average score across {totalQuestions} question{totalQuestions === 1 ? '' : 's'}
           </p>
         </CardContent>
       </Card>

@@ -29,6 +29,10 @@ export async function embedSingle(
   if (!text.trim()) throw new Error('text cannot be empty')
 
   const model = resolveEmbeddingsModel(cfg)
-  const { embedding } = await embed({ model, value: text })
+  const { embedding } = await embed({
+    model,
+    value: text,
+    abortSignal: AbortSignal.timeout(120_000),
+  })
   return embedding
 }

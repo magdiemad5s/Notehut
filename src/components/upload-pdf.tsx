@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RealtimeOcrStatus } from '@/components/realtime-ocr-status'
-import { byokToHeaders, useByokStore } from '@/lib/store/byok-store'
+import { byokToHeaders, useByokConfig } from '@/lib/store/byok-store'
 import { createClient } from '@/lib/supabase/client'
 
 interface UploadPdfProps {
@@ -32,7 +32,7 @@ export function UploadPdf({ topicId }: UploadPdfProps) {
   const [queueId, setQueueId] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const byok = useByokStore()
+  const byok = useByokConfig()
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0] ?? null
@@ -115,7 +115,7 @@ export function UploadPdf({ topicId }: UploadPdfProps) {
   }, [file, topicId])
 
   const handleEmbeddings = useCallback(async () => {
-    if (!queueId) return
+    if (!queueId) return false
     try {
       const res = await fetch('/api/embeddings', {
         method: 'POST',
@@ -131,15 +131,17 @@ export function UploadPdf({ topicId }: UploadPdfProps) {
       }
       const data = (await res.json()) as { chunkCount: number }
       toast.success(`Embedded ${data.chunkCount} chunks`)
+      return true
     } catch (error) {
       console.error('Embeddings error:', error)
       toast.error(error instanceof Error ? error.message : 'Embeddings failed')
+      return false
     }
   }, [queueId, byok])
 
   return (
-    <Card className="p-4 space-y-4">
-      <div className="space-y-2">
+    <Card className="space-y-4 p-4">
+      <div className="space-y-2 rounded-lg border border-dashed bg-muted/30 p-4">
         <Label htmlFor="pdf-upload">Upload PDF</Label>
         <Input
           id="pdf-upload"
@@ -154,6 +156,7 @@ export function UploadPdf({ topicId }: UploadPdfProps) {
             {file.name} — {(file.size / 1024 / 1024).toFixed(2)} MB
           </p>
         )}
+        {!file && <p className="text-xs text-muted-foreground">PDF only, up to 25 MB.</p>}
       </div>
 
       <Button

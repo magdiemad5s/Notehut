@@ -141,7 +141,7 @@ The SQL script must include:
 **app_settings** — admin toggles
 - key text primary key
 - value boolean not null
-- Seed: ('accelerated_ocr_online', false), ('worker_online', false)
+- Seed: ('accelerated_ocr_online', false). Worker availability is measured from authenticated `/health` checks rather than a manual flag.
 
 **app_secrets** — admin fallback API keys (NO RLS — service-role only)
 - key text primary key
@@ -262,7 +262,7 @@ interface ByokConfig {
 | /api/exam/share | user | POST | Insert shared_exams. Return public id. |
 | /api/exam/public-grade | none | POST | Body: {sharedExamId, answers}. Fetch public exam, grade using admin fallback keys from app_secrets. No weakness tracking for guests. |
 | /api/admin/queue | admin | GET | List all ocr_queue rows. |
-| /api/admin/settings | admin | GET/PUT | Toggle accelerated_ocr_online / worker_online in app_settings. |
+| /api/admin/settings | admin | GET/PUT | Configure accelerated OCR, worker endpoint/key, and feature models. |
 | /api/admin/fallback-keys | admin | GET/PUT | Manage app_secrets fallback_llm / fallback_embeddings (jsonb). Service-role only. |
 
 ## Frontend Components

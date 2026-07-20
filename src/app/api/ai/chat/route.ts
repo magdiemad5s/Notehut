@@ -6,6 +6,7 @@ import { resolveChatModel } from '@/lib/ai/providers'
 import { retrieveChunks } from '@/lib/rag/retrieve'
 import { chatSystemPrompt } from '@/lib/ai/prompts'
 import type { ByokConfig } from '@/lib/store/byok-store'
+import { resolveServerAiConfig } from '@/lib/ai/server-config'
 
 /**
  * POST /api/ai/chat
@@ -42,6 +43,7 @@ function readByokFromHeaders(request: NextRequest): ByokConfig {
     llmApiKey: h('x-byok-api-key'),
     llmModelName: h('x-byok-model'),
     embeddingsBaseURL: h('x-byok-embeddings-base-url'),
+    embeddingsApiKey: h('x-byok-embeddings-api-key'),
     embeddingsModel: h('x-byok-embeddings-model') || 'qwen3-embedding:0.6b',
   }
 }
@@ -87,19 +89,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // --- Read BYOK config from headers ------------------------------------
-    const byok = readByokFromHeaders(request)
-    // Gemini doesn't need a base URL (uses createGoogleGenerativeAI with apiKey only)
-    const needsBaseURL = byok.llmProvider !== 'gemini'
-    if (needsBaseURL && !byok.llmBaseURL) {
-      return NextResponse.json(
-        { error: 'LLM base URL is required for non-Gemini providers (configure in Settings)' },
-        { status: 400 },
+    let byok: ByokConfig
+    try {
+      byok = await resolveServerAiConfig(
+        readByokFromHeaders(request),
+        'chat_model',
       )
-    }
-    if (!byok.llmApiKey) {
+    } catch (configError) {
+      console.error('Chat configuration error:', configError)
       return NextResponse.json(
-        { error: 'LLM API key is required (configure in Settings)' },
+        { error: 'Complete LLM and embeddings configuration is required' },
         { status: 400 },
       )
     }

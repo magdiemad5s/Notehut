@@ -6,7 +6,8 @@ import { Loader2, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import ExamRunner from '@/components/exam-runner'
 import ExamResults from '@/components/exam-results'
-import { ExamSchema, type Exam, type GradeResult } from '@/lib/ai/schemas'
+import type { Exam, GradeResult } from '@/lib/ai/schemas'
+import { parseStoredExam } from '@/lib/exam/stored-exam'
 
 export default function ExamPage({
   params,
@@ -54,21 +55,13 @@ export default function ExamPage({
 
         setTitle(sharedExam.title)
 
-        // Validate questions_json against ExamSchema before rendering
-        try {
-          const parsed = JSON.parse(sharedExam.questions_json)
-          const validation = ExamSchema.safeParse(parsed)
-          if (!validation.success) {
-            setError('This exam has malformed questions and cannot be loaded.')
-            setIsLoading(false)
-            return
-          }
-          setExam(validation.data)
-        } catch {
-          setError('Invalid exam data format.')
+        const parsedExam = parseStoredExam(sharedExam.questions_json)
+        if (!parsedExam) {
+          setError('This exam has malformed questions and cannot be loaded.')
           setIsLoading(false)
           return
         }
+        setExam(parsedExam)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load exam')
       } finally {
@@ -89,9 +82,7 @@ export default function ExamPage({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sharedExamId: id,
-          answers: Object.fromEntries(
-            Object.entries(answers).map(([k, v]) => [k, v]),
-          ),
+          answers,
         }),
       })
 
@@ -204,6 +195,7 @@ export default function ExamPage({
         <ExamRunner
           exam={exam}
           onSubmit={handleSubmit}
+          submitting={isGrading}
         />
       )}
 

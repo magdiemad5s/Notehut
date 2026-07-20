@@ -57,12 +57,21 @@ create table if not exists public.ocr_queue (
   document_id uuid references documents(id) on delete cascade,
   file_url text not null,
   status text default 'pending'
-    constraint ocr_queue_status_check check (status in ('pending', 'processing', 'completed', 'failed')),
+    constraint ocr_queue_status_check check (status in ('pending', 'processing', 'completed', 'embedded', 'failed')),
   extracted_text text,   -- written by external Python worker
   error text,            -- written by external Python worker on failure
+  claim_token uuid,      -- worker lease token; prevents stale workers overwriting retries
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
+
+alter table public.ocr_queue
+  add column if not exists claim_token uuid;
+
+alter table public.ocr_queue drop constraint if exists ocr_queue_status_check;
+alter table public.ocr_queue
+  add constraint ocr_queue_status_check
+  check (status in ('pending', 'processing', 'completed', 'embedded', 'failed'));
 
 -- user_weaknesses: adaptive learning tracking
 create table if not exists public.user_weaknesses (
@@ -112,11 +121,21 @@ begin
 end;
 $$;
 
--- app_secrets: admin fallback API keys (NO RLS — service-role only)
+-- app_secrets: admin fallback API keys (RLS with service-role-only access)
 create table if not exists public.app_secrets (
   key text primary key,
   value jsonb not null
 );
+
+-- Shared, serverless-safe counters for public endpoints. No direct client access.
+create table if not exists public.api_rate_limits (
+  rate_key text primary key,
+  window_started_at timestamptz not null default now(),
+  request_count integer not null default 0
+);
+
+create index if not exists idx_api_rate_limits_window_started_at
+  on public.api_rate_limits (window_started_at);
 
 -- ============================================================================
 -- FUNCTION: admin check (security definer to avoid RLS recursion)
@@ -206,11 +225,139 @@ as $$
   limit match_count;
 $$;
 
+-- Atomically increment weakness counters so concurrent submissions cannot
+-- overwrite one another. The function runs with caller privileges and RLS.
+create or replace function public.increment_user_weaknesses(p_deltas jsonb)
+returns void
+language sql
+set search_path = ''
+as $$
+  insert into public.user_weaknesses (
+    user_id,
+    topic_name,
+    error_count,
+    last_failed_at
+  )
+  select
+    auth.uid(),
+    delta.key,
+    greatest(delta.value::integer, 1),
+    now()
+  from jsonb_each_text(p_deltas) as delta
+  where auth.uid() is not null
+  on conflict (user_id, topic_name) do update
+  set error_count = public.user_weaknesses.error_count + excluded.error_count,
+      last_failed_at = excluded.last_failed_at;
+$$;
+
+revoke all on function public.increment_user_weaknesses(jsonb) from public, anon;
+grant execute on function public.increment_user_weaknesses(jsonb) to authenticated;
+
+-- Replace all chunks for one owned document in a single transaction. Any
+-- vector cast or insert failure rolls back the preceding delete.
+create or replace function public.replace_document_chunks(
+  p_document_id uuid,
+  p_chunks jsonb
+)
+returns integer
+language plpgsql
+set search_path = ''
+as $$
+declare
+  inserted_count integer;
+begin
+  if jsonb_typeof(p_chunks) <> 'array' or jsonb_array_length(p_chunks) = 0 then
+    raise exception 'p_chunks must be a non-empty array';
+  end if;
+
+  if auth.role() <> 'service_role' and not exists (
+    select 1 from public.documents
+    where id = p_document_id and user_id = auth.uid()
+  ) then
+    raise exception 'Document not found or not owned by caller';
+  end if;
+
+  delete from public.document_chunks
+  where document_id = p_document_id;
+
+  insert into public.document_chunks (document_id, content, embedding)
+  select
+    p_document_id,
+    chunk->>'content',
+    (chunk->>'embedding')::vector
+  from jsonb_array_elements(p_chunks) as chunk;
+
+  get diagnostics inserted_count = row_count;
+  return inserted_count;
+end;
+$$;
+
+revoke all on function public.replace_document_chunks(uuid, jsonb)
+  from public, anon, authenticated;
+grant execute on function public.replace_document_chunks(uuid, jsonb) to service_role;
+
+-- Atomic fixed-window rate limiter. SECURITY DEFINER is required because only
+-- the service role may access api_rate_limits directly.
+create or replace function public.check_public_grade_rate_limit(
+  p_rate_key text,
+  p_rate_limit integer default 5,
+  p_window_seconds integer default 60
+)
+returns boolean
+language plpgsql
+security definer set search_path = ''
+as $$
+declare
+  next_count integer;
+begin
+  if p_rate_limit < 1 or p_window_seconds < 1 then
+    return false;
+  end if;
+
+  insert into public.api_rate_limits as limits (
+    rate_key,
+    window_started_at,
+    request_count
+  ) values (
+    left(p_rate_key, 256),
+    now(),
+    1
+  )
+  on conflict (rate_key) do update
+  set window_started_at = case
+        when limits.window_started_at <= now() - make_interval(secs => p_window_seconds)
+          then now()
+        else limits.window_started_at
+      end,
+      request_count = case
+        when limits.window_started_at <= now() - make_interval(secs => p_window_seconds)
+          then 1
+        else limits.request_count + 1
+      end
+  returning request_count into next_count;
+
+  -- Indexed, probabilistic cleanup avoids a table scan on every request while
+  -- still bounding stale unique-IP rows over time.
+  if random() < 0.01 then
+    delete from public.api_rate_limits
+    where window_started_at < now() - interval '1 day';
+  end if;
+
+  return next_count <= p_rate_limit;
+end;
+$$;
+
+revoke all on function public.check_public_grade_rate_limit(text, integer, integer)
+  from public, anon, authenticated;
+grant execute on function public.check_public_grade_rate_limit(text, integer, integer)
+  to service_role;
+
 -- ============================================================================
 -- ROW LEVEL SECURITY (RLS)
 -- ============================================================================
 
--- Enable RLS on all tables except app_secrets
+-- Enable RLS on every public table. app_secrets and api_rate_limits have no
+-- client policies; service-role clients bypass RLS.
 alter table if exists public.profiles enable row level security;
 alter table if exists public.topics enable row level security;
 alter table if exists public.documents enable row level security;
@@ -219,9 +366,16 @@ alter table if exists public.ocr_queue enable row level security;
 alter table if exists public.user_weaknesses enable row level security;
 alter table if exists public.shared_exams enable row level security;
 alter table if exists public.app_settings enable row level security;
--- app_secrets: NO RLS — service-role-only access
+alter table if exists public.app_secrets enable row level security;
+alter table if exists public.api_rate_limits enable row level security;
 
--- profiles: user can read/update own row. is_admin users can read all.
+revoke all on table public.app_secrets from anon, authenticated;
+revoke all on table public.api_rate_limits from anon, authenticated;
+grant all on table public.app_secrets to service_role;
+grant all on table public.api_rate_limits to service_role;
+
+-- profiles: users can read their own row. Only service-role admin routes may
+-- update profiles; otherwise a user could set their own is_admin flag.
 drop policy if exists "Users can read own profile" on public.profiles;
 drop policy if exists "Admins can read all profiles" on public.profiles;
 drop policy if exists "Users can update own profile" on public.profiles;
@@ -234,10 +388,7 @@ create policy "Admins can read all profiles"
   on public.profiles for select
   using (public.is_admin());
 
-create policy "Users can update own profile"
-  on public.profiles for update
-  using (auth.uid() = id)
-  with check (auth.uid() = id);
+revoke update on public.profiles from anon, authenticated;
 
 -- topics: owner-only (select, insert, update, delete where auth.uid() = user_id)
 drop policy if exists "Users can select own topics" on public.topics;
@@ -354,7 +505,15 @@ create policy "Users can select own ocr queue items"
 
 create policy "Users can insert own ocr queue items"
   on public.ocr_queue for insert
-  with check (auth.uid() = user_id);
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.documents
+      where documents.id = ocr_queue.document_id
+      and documents.user_id = auth.uid()
+      and documents.storage_path = ocr_queue.file_url
+    )
+  );
 
 create policy "Only admins can update ocr queue"
   on public.ocr_queue for update
@@ -422,13 +581,14 @@ create policy "Owner can delete own exams"
   on public.shared_exams for delete
   using (auth.uid() = creator_id);
 
--- app_settings: any authenticated user can read. Only is_admin can update.
+-- app_settings may contain worker endpoints and operational configuration.
+-- Restrict reads and writes to admins.
 drop policy if exists "Authenticated users can read app settings" on public.app_settings;
 drop policy if exists "Only admins can update app settings" on public.app_settings;
 
 create policy "Authenticated users can read app settings"
   on public.app_settings for select
-  using (auth.role() = 'authenticated');
+  using (public.is_admin());
 
 create policy "Only admins can update app settings"
   on public.app_settings for update
@@ -439,7 +599,7 @@ create policy "Only admins can update app settings"
     public.is_admin()
   );
 
--- app_secrets: NO RLS policies — service-role-only access (intentionally omitted)
+-- app_secrets/api_rate_limits: RLS enabled with no client policies.
 
 -- ============================================================================
 -- SEED DATA
@@ -448,7 +608,6 @@ create policy "Only admins can update app settings"
 -- Seed app_settings
 insert into public.app_settings (key, value) values
   ('accelerated_ocr_online', 'false'::jsonb),
-  ('worker_online', 'false'::jsonb),
   ('ocr_worker_url', '""'::jsonb),
   ('ocr_worker_api_key', '""'::jsonb),
   ('exam_model', '""'::jsonb),
@@ -456,6 +615,10 @@ insert into public.app_settings (key, value) values
   ('grading_model', '""'::jsonb),
   ('tutor_model', '""'::jsonb)
 on conflict (key) do nothing;
+
+-- Remove the legacy manual status flag. Worker availability is derived from
+-- authenticated health checks so the dashboard cannot report stale state.
+delete from public.app_settings where key = 'worker_online';
 
 -- Seed app_secrets
 insert into public.app_secrets (key, value) values
@@ -485,7 +648,7 @@ $$;
 -- ============================================================================
 -- Storage: 'pdfs' bucket (private)
 -- Files stored at pdfs/{user_id}/{uuid}.pdf
--- The API route enforces user folder isolation; RLS just checks authentication.
+-- Storage policies enforce the same user-id path prefix as the application.
 -- ============================================================================
 
 -- Create the storage bucket
@@ -501,16 +664,27 @@ DROP POLICY IF EXISTS "Allow upload to pdfs" ON storage.objects;
 DROP POLICY IF EXISTS "Allow read from pdfs" ON storage.objects;
 DROP POLICY IF EXISTS "Allow delete from pdfs" ON storage.objects;
 
--- RLS: any authenticated user can operate on the pdfs bucket
--- (the API route restricts paths to {user_id}/ so users can't touch others' files)
+-- RLS: authenticated users may operate only on {auth.uid()}/... paths.
 CREATE POLICY "Allow upload to pdfs"
   ON storage.objects FOR INSERT
-  WITH CHECK (bucket_id = 'pdfs' AND auth.role() = 'authenticated');
+  WITH CHECK (
+    bucket_id = 'pdfs'
+    AND auth.role() = 'authenticated'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
 
 CREATE POLICY "Allow read from pdfs"
   ON storage.objects FOR SELECT
-  USING (bucket_id = 'pdfs' AND auth.role() = 'authenticated');
+  USING (
+    bucket_id = 'pdfs'
+    AND auth.role() = 'authenticated'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
 
 CREATE POLICY "Allow delete from pdfs"
   ON storage.objects FOR DELETE
-  USING (bucket_id = 'pdfs' AND auth.role() = 'authenticated');
+  USING (
+    bucket_id = 'pdfs'
+    AND auth.role() = 'authenticated'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
